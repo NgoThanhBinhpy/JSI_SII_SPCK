@@ -133,14 +133,14 @@ export function deleteDocEveLis(delOrCancel = "delete") {
       `
           <div>
             <h6>This action can not be undone!</h6>
-            <a class="btn btn-danger confirm-delete-btn" data-bs-dismiss="modal" data-collection="${deleteBtn.dataset.collection}" data-uid="${deleteBtn.dataset.uid}">${delOrCancel[0].toUpperCase() + delOrCancel.slice(1)} this?</a>
+            <a class="btn btn-danger confirm-delete-btn" data-bs-dismiss="modal">${delOrCancel[0].toUpperCase() + delOrCancel.slice(1)} this?</a>
           </div>
           `,
       `<div class="fs-5">Confirm ${delOrCancel}?</div>`,
     );
     ModalEl.querySelector(".confirm-delete-btn").addEventListener(
       "click",
-      async (e) => {
+      async () => {
         try {
           await deleteDoc(
             doc(db, e.target.dataset.collection, e.target.dataset.uid),
@@ -154,6 +154,86 @@ export function deleteDocEveLis(delOrCancel = "delete") {
         }
       },
     );
+  });
+}
+
+/**
+ * @param {htmlElement} parentEl
+ */
+export function editJsonEveLis(parentEl, obj, renderFunc, id) {
+  const editBtn = parentEl.querySelector('[data-tool="edit-json"]');
+  if (!editBtn) return;
+
+  editBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    const editorContainer = document.createElement("div");
+    const jsonString = JSON.stringify(obj, null, 2);
+
+    editorContainer.innerHTML = `
+      <div class="mb-3">
+        <label class="form-label text-muted small fw-bold">Document Payload (JSON Format)</label>
+        <textarea 
+          class="form-control font-monospace text-bg-dark text-light p-3 rounded" 
+          id="json-editor-textarea" 
+          rows="14" 
+          spellcheck="false"
+          style="font-size: 0.875rem; resize: vertical;"
+        >${jsonString}</textarea>
+        <div id="json-error-msg" class="invalid-feedback d-none mt-2">
+          Invalid JSON format. Please check syntax before saving.
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-warning fw-semibold" id="save-json-btn">
+          <i class="bi bi-check-lg me-1"></i>Save Changes
+        </button>
+      </div>
+    `;
+
+    const textarea = editorContainer.querySelector("#json-editor-textarea");
+    const saveBtn = editorContainer.querySelector("#save-json-btn");
+    const errorMsg = editorContainer.querySelector("#json-error-msg");
+
+    textarea.addEventListener("input", () => {
+      try {
+        JSON.parse(textarea.value);
+        textarea.classList.remove("is-invalid");
+        errorMsg.classList.add("d-none");
+        saveBtn.disabled = false;
+      } catch (err) {
+        textarea.classList.add("is-invalid");
+        errorMsg.classList.remove("d-none");
+        saveBtn.disabled = true;
+      }
+    });
+
+    const { ModalEl, modal } = showModal(
+      editorContainer,
+      `Edit JSON: ${editBtn.dataset.uid}`,
+      true,
+    );
+
+    saveBtn.addEventListener("click", async () => {
+      try {
+        const updatedData = JSON.parse(textarea.value);
+        await setDoc(
+          doc(db, editBtn.dataset.collection, editBtn.dataset.uid),
+          {
+            ...updatedData,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+
+        showToast("Successfully updated document JSON!", "success");
+        modal.hide();
+        parentEl.replaceWith(renderFunc(updatedData, id));
+      } catch (err) {
+        showToast("Error updating JSON document: ", "danger", err);
+      }
+    });
   });
 }
 

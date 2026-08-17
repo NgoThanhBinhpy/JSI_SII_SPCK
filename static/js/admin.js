@@ -6,6 +6,7 @@ import {
   deleteDocEveLis,
   calculateBookPrice,
   addItems,
+  editJsonEveLis,
 } from "./utils.js";
 import {
   doc,
@@ -19,21 +20,11 @@ import {
 } from "./firebase-config.js";
 import { createCustomCss } from "../../new.js";
 
-async function renderItems() {
-  try {
-    const product_tbody = document.querySelector("#products-table-body");
-    product_tbody.innerHTML = "";
-    const querySnapshot = await getDocs(collection(db, "products"));
-    const sortedDocs = querySnapshot.docs.sort((a, b) =>
-      a.id.localeCompare(b.id, undefined, { numeric: true }),
-    );
-    console.log(sortedDocs);
-    sortedDocs.forEach((docSnap) => {
-      const data = docSnap.data();
-      const trEl = document.createElement("tr");
-      trEl.dataset.parentId = docSnap.id;
-      trEl.innerHTML = `
-      <td>${docSnap.id || "No data available"}</td>
+function renderItem(data, docSnapId) {
+  const trEl = document.createElement("tr");
+  trEl.dataset.parentId = docSnapId;
+  trEl.innerHTML = `
+      <td>${docSnapId || "No data available"}</td>
       <td>${data.volumeInfo?.title || "No data available"}</td>
       <td>${data.volumeInfo?.publisher || "No data available"}</td>
       <td>
@@ -56,22 +47,43 @@ async function renderItems() {
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm">
             <li>
-              <a class="dropdown-item" data-tool="view-raw-json" href="#" data-id="${docSnap.id}">
+              <a class="dropdown-item" data-tool="view-raw-json" href="#">
                 <i class="bi bi-code-slash me-2"></i>View Raw JSON
+              </a>
+            </li>
+
+            <li>
+              <a class="dropdown-item" data-tool="edit-json" href="#" data-collection="orders" data-uid="${docSnapId}">
+                <i class="bi bi-file-earmark-code me-2 text-warning"></i>Edit Document JSON
               </a>
             </li>
 
             <li><hr class="dropdown-divider"></li>
 
             <li>
-              <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="products" data-uid="${docSnap.id}">
+              <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="products" data-uid="${docSnapId}">
                 <i class="bi bi-trash me-2"></i>Delete product
               </a>
             </li>
           </ul>
         </div>
       </td>`;
-      viewRawJsonEveLis(trEl, data);
+  viewRawJsonEveLis(trEl, data);
+  editJsonEveLis(trEl, data, renderItem);
+  return trEl;
+}
+
+async function renderItems() {
+  try {
+    const product_tbody = document.querySelector("#products-table-body");
+    product_tbody.innerHTML = "";
+    const querySnapshot = await getDocs(collection(db, "products"));
+    const sortedDocs = querySnapshot.docs.sort((a, b) =>
+      a.id.localeCompare(b.id, undefined, { numeric: true }),
+    );
+    console.log(sortedDocs);
+    sortedDocs.forEach((docSnap) => {
+      const trEl = renderItem(docSnap.data(), docSnap.id);
       product_tbody.appendChild(trEl);
     });
   } catch (error) {
@@ -79,24 +91,14 @@ async function renderItems() {
   }
 }
 
-async function renderOrders() {
-  try {
-    const order_tbody = document.querySelector("#orders-table-body");
-    order_tbody.innerHTML = "";
-    const querySnapshot = await getDocs(collection(db, "orders"));
-    const sortedDocs = querySnapshot.docs.sort((a, b) =>
-      a.id.localeCompare(b.id, undefined, { numeric: true }),
-    );
-    console.log(sortedDocs);
-    sortedDocs.forEach((docSnap) => {
-      const data = docSnap.data();
-      const trEl = document.createElement("tr");
-      trEl.dataset.parentId = docSnap.id;
-      trEl.innerHTML = `
-      <td>${docSnap.id || "No data available"}</td>
+function renderOrder(data, docSnapId) {
+  const trEl = document.createElement("tr");
+  trEl.dataset.parentId = docSnapId;
+  trEl.innerHTML = `
+      <td>${docSnapId || "No data available"}</td>
       <td>${data.customer?.email || "No data available"}</td>
       <td>${data.item?.title}</td>
-      <td>${data.item?.unitPrice.amount * data.quantity + " " + data.item?.unitPrice.currency || "No data avaliable"}</td>
+      <td>${data.pricing?.totalAmount + " " + data.pricing?.unitPrice?.currency || "No data avaliable"}</td>
       <td>${data.quantity || "No data available"}</td>
       <td>
         ${data.status || "No data available"}
@@ -113,29 +115,44 @@ async function renderOrders() {
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm">
             <li>
-              <a class="dropdown-item change-status-btn" href="#">
-                <i class="bi bi-pencil-square me-2"></i>Change Status
+              <a class="dropdown-item" data-tool="view-raw-json" href="#">
+                <i class="bi bi-code-slash me-2"></i>View Raw JSON
               </a>
             </li>
-            
+
             <li>
-              <a class="dropdown-item" data-tool="view-raw-json" href="#" data-id="${docSnap.id}">
-                <i class="bi bi-code-slash me-2"></i>View Raw JSON
+              <a class="dropdown-item" data-tool="edit-json" href="#" data-collection="orders" data-uid="${docSnapId}">
+                <i class="bi bi-file-earmark-code me-2 text-warning"></i>Edit Document JSON
               </a>
             </li>
 
             <li><hr class="dropdown-divider"></li>
 
             <li>
-              <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="orders" data-uid="${docSnap.id}">
+              <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="orders" data-uid="${docSnapId}">
                 <i class="bi bi-trash me-2"></i>Delete Order
               </a>
             </li>
           </ul>
         </div>
       </td>`;
+  viewRawJsonEveLis(trEl, data);
+  editJsonEveLis(trEl, data, renderOrder, docSnapId);
+  return trEl;
+}
+
+async function renderOrders() {
+  try {
+    const order_tbody = document.querySelector("#orders-table-body");
+    order_tbody.innerHTML = "";
+    const querySnapshot = await getDocs(collection(db, "orders"));
+    const sortedDocs = querySnapshot.docs.sort((a, b) =>
+      a.id.localeCompare(b.id, undefined, { numeric: true }),
+    );
+    console.log(sortedDocs);
+    sortedDocs.forEach((docSnap) => {
+      const trEl = renderOrder(docSnap.data(), docSnap.id);
       order_tbody.appendChild(trEl);
-      viewRawJsonEveLis(trEl, data);
     });
   } catch (error) {
     showToast("Failed to load orders: ", "danger", error);
