@@ -14,6 +14,12 @@ import {
 } from "./firebase-config.js";
 import { createTreeViewer } from "../../new.js";
 
+/**
+ * @param {string} message
+ * @param {string} type
+ * @param {Error} error
+ * @param {number} delay
+ */
 export function showToast(message, type = "danger", error, delay = 3000) {
   let container = document.querySelector(".toast-container");
 
@@ -68,6 +74,12 @@ export function showToast(message, type = "danger", error, delay = 3000) {
   }
 }
 
+/**
+ * @param {string | HTMLElement} modalBody
+ * @param {string} modalTitle
+ * @param {boolean} htmlElement
+ * @returns
+ */
 export function showModal(modalBody, modalTitle, htmlElement = false) {
   const ModalEl = document.createElement("div");
   if (!htmlElement)
@@ -114,7 +126,11 @@ export function showModal(modalBody, modalTitle, htmlElement = false) {
 
   return { ModalEl, modal };
 }
-
+/**
+ * @param {HTMLElement} parentEl
+ * @param {object} obj
+ * @param {string} title
+ */
 export function viewRawJsonEveLis(parentEl, obj, title = "Raw JSON") {
   parentEl
     .querySelector('[data-tool="view-raw-json"]')
@@ -124,6 +140,9 @@ export function viewRawJsonEveLis(parentEl, obj, title = "Raw JSON") {
     });
 }
 
+/**
+ * @param {string} delOrCancel
+ */
 export function deleteDocEveLis(delOrCancel = "delete") {
   document.body.addEventListener("click", (e) => {
     const deleteBtn = e.target.closest('[data-tool="delete"]');
@@ -158,7 +177,10 @@ export function deleteDocEveLis(delOrCancel = "delete") {
 }
 
 /**
- * @param {htmlElement} parentEl
+ * @param {string} id
+ * @param {object} obj
+ * @param {HTMLElement} parentEl
+ * @param {Function} renderFunc
  */
 export function editJsonEveLis(parentEl, obj, renderFunc, id) {
   const editBtn = parentEl.querySelector('[data-tool="edit-json"]');
@@ -237,6 +259,9 @@ export function editJsonEveLis(parentEl, obj, renderFunc, id) {
   });
 }
 
+/**
+ * @returns {*}
+ */
 export async function getCurrentUser() {
   console.log("currUser called");
   return new Promise((resolve, reject) => {
@@ -252,6 +277,10 @@ export async function getCurrentUser() {
   });
 }
 
+/**
+ * @param {boolean} getUser
+ * @returns
+ */
 export async function isAdmin(getUser = false) {
   console.log("isAdmin called");
   const user = await getCurrentUser();
@@ -272,6 +301,10 @@ export async function isAdmin(getUser = false) {
   return false;
 }
 
+/**
+ * @param {boolean} isAdmin_
+ * @param {*} user
+ */
 export async function createNavbar(isAdmin_, user) {
   const navbar = document.createElement("nav");
   navbar.className = `navbar navbar-expand-lg bg-body-tertiary`;
@@ -331,6 +364,12 @@ export async function createNavbar(isAdmin_, user) {
   document.body.prepend(navbar);
 }
 
+/**
+ * @param {object} product
+ * @param {*} user
+ * @param {number} quantity
+ * @returns {string}
+ */
 export async function createOrder(product, user, quantity = 1) {
   const newOrderRef = doc(collection(db, "orders"));
   const title = product.volumeInfo?.title || "Untitled",
@@ -373,6 +412,9 @@ export async function createOrder(product, user, quantity = 1) {
   return newOrderRef.id;
 }
 
+/**
+ * @param {*} bookData
+ */
 export function addToCart(bookData) {
   var cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
   if (cartArr.find((c) => c.id === bookData.id)) {
@@ -384,6 +426,9 @@ export function addToCart(bookData) {
   showToast("Successfully add product to cart", "success");
 }
 
+/**
+ * @param {object} bookData
+ */
 export function removeFromCart(bookData) {
   var cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
   const bookId = cartArr.findIndex((c) => c.id === bookData.id);
@@ -396,6 +441,10 @@ export function removeFromCart(bookData) {
   showToast("Successfully remove product from cart", "success");
 }
 
+/**
+ * @param {object} book
+ * @returns {object}
+ */
 export function calculateBookPrice(book) {
   const pageCount = book.volumeInfo?.pageCount;
 
@@ -413,6 +462,9 @@ export function calculateBookPrice(book) {
   };
 }
 
+/**
+ * @param {number} count
+ */
 export async function addItems(count = 10) {
   try {
     const response = await fetch(
