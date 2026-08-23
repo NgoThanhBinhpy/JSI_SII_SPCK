@@ -143,7 +143,7 @@ function renderPrimitive(value) {
   return span;
 }
 
-function createTreeItem(key, value, depth = 0) {
+function createTreeItem(key, value, depth = 0, visited = new WeakSet()) {
   const item = document.createElement("div");
   item.className = "tree-item";
 
@@ -152,7 +152,29 @@ function createTreeItem(key, value, depth = 0) {
 
   const isCollapsible = typeof value === "object" && value !== null;
 
+  // Handle circular references or maximum depth safety limits
+  if (isCollapsible && visited.has(value)) {
+    const keySpan = document.createElement("span");
+    keySpan.className = "tree-key";
+    keySpan.textContent = key;
+
+    const colonSpan = document.createElement("span");
+    colonSpan.textContent = ": ";
+
+    const circularSpan = document.createElement("span");
+    circularSpan.className = "tree-value text-warning";
+    circularSpan.textContent = "[Circular]";
+
+    content.appendChild(keySpan);
+    content.appendChild(colonSpan);
+    content.appendChild(circularSpan);
+    item.appendChild(content);
+    return item;
+  }
+
   if (isCollapsible) {
+    visited.add(value); // Mark object as visited
+
     const toggle = document.createElement("div");
     toggle.className = "tree-toggle collapsed";
     toggle.setAttribute("role", "button");
@@ -164,12 +186,12 @@ function createTreeItem(key, value, depth = 0) {
     if (Array.isArray(value)) {
       value.forEach((element, index) => {
         childrenContainer.appendChild(
-          createTreeItem(`${index}`, element, depth + 1),
+          createTreeItem(`${index}`, element, depth + 1, visited),
         );
       });
     } else {
       Object.entries(value).forEach(([k, v]) => {
-        childrenContainer.appendChild(createTreeItem(k, v, depth + 1));
+        childrenContainer.appendChild(createTreeItem(k, v, depth + 1, visited));
       });
     }
 
@@ -223,8 +245,10 @@ export function createTreeViewer(obj) {
   const container = document.createElement("div");
   container.className = "console-tree";
 
+  const visited = new WeakSet();
+
   Object.entries(obj).forEach(([key, value]) => {
-    container.appendChild(createTreeItem(key, value, 0));
+    container.appendChild(createTreeItem(key, value, 0, visited));
   });
 
   return container;

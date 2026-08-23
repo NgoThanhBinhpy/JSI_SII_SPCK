@@ -11,6 +11,7 @@ import {
   setDoc,
   deleteDoc,
   writeBatch,
+  getDocs,
 } from "./firebase-config.js";
 import { createTreeViewer } from "../../new.js";
 
@@ -126,6 +127,24 @@ export function showModal(modalBody, modalTitle, htmlElement = false) {
 
   return { ModalEl, modal };
 }
+
+export async function renderQueryResult(docRef, container, renderFunction) {
+  container.innerHTML =
+    `<div class="col"><div class="card h-100 shadow-sm placeholder-glow"> <div class="card-header p-2 d-flex justify-content-between"> <p class="placeholder col-2 my-auto"></p> <p class="placeholder col-2 my-auto"></p> </div> <div class="card-body p-3"> <div class="row g-2 align-items-center"> <div class="col-4"> <div class="ratio ratio-1x1 bg-success rounded placeholder"></div> </div> <div class="col-8"> <h6 class="card-title placeholder col-11"></h6> <p class="placeholder col-8"></p> <p class="placeholder col-6"></p> <p class="placeholder col-4"></p> </div> </div> </div> <div class="card-footer bg-transparent border-top-0 pt-0 pb-3 px-3 d-flex gap-2"> <span class="btn btn-primary disabled placeholder col-7"></span> <span class="btn btn-outline-secondary disabled placeholder col-5"></span> </div> </div></div>`.repeat(
+      6,
+    );
+  const querySnapshot = await getDocs(docRef);
+  const sortedDocs = querySnapshot.docs.sort((a, b) =>
+    a.id.localeCompare(b.id, undefined, { numeric: true }),
+  );
+  container.innerHTML = "";
+  for (const docSnap of sortedDocs) {
+    const cardEl = renderFunction(docSnap);
+    container.appendChild(cardEl);
+  }
+  return sortedDocs;
+}
+
 /**
  * @param {HTMLElement} parentEl
  * @param {object} obj
@@ -177,20 +196,22 @@ export function deleteDocEveLis(delOrCancel = "delete") {
 }
 
 /**
- * @param {string} id
- * @param {object} obj
  * @param {HTMLElement} parentEl
  * @param {Function} renderFunc
  */
-export function editJsonEveLis(parentEl, obj, renderFunc, id) {
+export function editJsonEveLis(parentEl, docSnap, renderFunc) {
   const editBtn = parentEl.querySelector('[data-tool="edit-json"]');
   if (!editBtn) return;
 
+  const data = docSnap.data();
+  const id = docSnap.id;
   editBtn.addEventListener("click", (e) => {
     e.preventDefault();
 
     const editorContainer = document.createElement("div");
-    const jsonString = JSON.stringify(obj, null, 2);
+    delete data.createdAt;
+    delete data.id;
+    const jsonString = JSON.stringify(data, null, 2);
 
     editorContainer.innerHTML = `
       <div class="mb-3">
@@ -251,7 +272,11 @@ export function editJsonEveLis(parentEl, obj, renderFunc, id) {
 
         showToast("Successfully updated document JSON!", "success");
         modal.hide();
-        parentEl.replaceWith(renderFunc(updatedData, id));
+        const localSnap = {
+          id: id,
+          data: () => updatedData,
+        };
+        parentEl.replaceWith(renderFunc(localSnap));
       } catch (err) {
         showToast("Error updating JSON document: ", "danger", err);
       }
@@ -500,4 +525,57 @@ export async function addItems(count = 10) {
   } catch (error) {
     showToast("Error adding books: ", "danger", error);
   }
+}
+
+export function setBootstrapTheme(theme) {
+  if (theme === "auto") {
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "light";
+    document.documentElement.setAttribute("data-bs-theme", systemTheme);
+  } else {
+    document.documentElement.setAttribute("data-bs-theme", theme);
+  }
+}
+
+export function createSetThemeEl() {
+  const themeDropDown = document.createElement("div");
+  themeDropDown.className = "dropup position-fixed bottom-0 start-0 m-3 z-3";
+  themeDropDown.innerHTML = `
+  <button 
+    class="btn btn-bd-primary py-2 px-3 dropdown-toggle d-flex align-items-center shadow rounded-pill bg-body-tertiary border" 
+    id="bd-theme" 
+    type="button" 
+    data-bs-toggle="dropdown" 
+    aria-expanded="false" 
+    aria-label="Toggle theme">
+    <i class="bi bi-sun-fill me-2 id="theme-icon-active"></i>
+    <span class="d-none d-sm-inline">Theme</span>
+  </button>
+
+  <ul class="dropdown-menu shadow" aria-labelledby="bd-theme">
+    <li>
+      <button type="button" class="dropdown-item d-flex align-items-center" data-theme="light">
+        <i class="bi bi-sun-fill me-2"></i> Light
+      </button>
+    </li>
+    <li>
+      <button type="button" class="dropdown-item d-flex align-items-center" data-theme="dark">
+        <i class="bi bi-moon-stars-fill me-2"></i> Dark
+      </button>
+    </li>
+    <li>
+      <button type="button" class="dropdown-item d-flex align-items-center" data-theme="auto">
+        <i class="bi bi-circle-half me-2"></i> Auto
+      </button>
+    </li>
+  </ul>`;
+  themeDropDown.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-theme]");
+    if (!btn) return;
+    const theme = btn.dataset.theme;
+    setBootstrapTheme(theme);
+  });
+  document.body.appendChild(themeDropDown);
 }

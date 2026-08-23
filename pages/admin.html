@@ -17,8 +17,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.0/font/bootstrap-icons.min.css"
     />
   </head>
-  <body class="bg-light p-4">
-    <div class="container bg-white p-4 rounded shadow-sm">
+  <body class="bg-body p-2">
+    <div class="container bg-body p-4 rounded shadow-sm">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Admin Dashboard</h2>
         <a href="../index.html" class="btn btn-outline-secondary"
@@ -53,27 +53,13 @@
 
       <div class="tab-content pt-3" id="adminTabsContent">
         <div class="tab-pane fade show active" id="orders-pane">
-          <h4>Customer Orders</h4>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Customer Email</th>
-                  <th>Product Title</th>
-                  <th>Total Value</th>
-                  <th>Total Amount</th>
-                  <th>Current Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="orders-table-body"></tbody>
-            </table>
-          </div>
+          <h4 class="mb-3">Customer Orders</h4>
+          <div class="row g-3" id="orders-container"></div>
         </div>
 
+        <!-- Products Tab -->
         <div class="tab-pane fade" id="products-pane">
-          <div class="d-flex justify-content-between mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
             <h4>Product Catalog</h4>
             <div class="input-group w-auto">
               <button class="btn btn-primary" type="button" id="add-books-btn">
@@ -90,24 +76,8 @@
               />
             </div>
           </div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle">
-              <thead>
-                <tr>
-                  <th>Book&nbsp;ID</th>
-                  <th>Title</th>
-                  <th>Publisher</th>
-                  <th>Published&nbsp;Date</th>
-                  <th>Authors</th>
-                  <th>Price</th>
-                  <th>Catergories</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="products-table-body">
-                <!-- Products injected dynamically -->
-              </tbody>
-            </table>
+          <div class="row g-3" id="products-container">
+            <!-- Product Cards injected dynamically -->
           </div>
         </div>
       </div>

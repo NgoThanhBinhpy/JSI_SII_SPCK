@@ -15,6 +15,7 @@ import {
   isAdmin,
   deleteDocEveLis,
   viewRawJsonEveLis,
+  renderQueryResult,
 } from "./utils.js";
 import { createCustomCss } from "../../new.js";
 
@@ -29,12 +30,7 @@ async function renderAllOrders(user) {
   try {
     const ordersRef = collection(db, "orders");
     const q = query(ordersRef, where("customer.uid", "==", uid));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((docSnap) => {
-      const cardEl = renderOrderCard(docSnap);
-      viewRawJsonEveLis(cardEl, docSnap.data());
-      container.appendChild(cardEl);
-    });
+    await renderQueryResult(q, container, renderOrderCard);
   } catch (e) {
     showToast("Error querying orders: ", "danger", e);
   }
@@ -165,6 +161,7 @@ function renderOrderCard(orderDoc) {
 
       </div>
   `;
+  viewRawJsonEveLis(cardEl, data);
   return cardEl;
 }
 
