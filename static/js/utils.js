@@ -6,14 +6,153 @@ import {
   onAuthStateChanged,
   signOut,
   serverTimestamp,
-  Timestamp,
+  GoogleAuthProvider,
+  GithubAuthProvider,
   collection,
   setDoc,
   deleteDoc,
   writeBatch,
   getDocs,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  linkWithCredential,
+  updateDoc,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  deleteUser,
+  updatePassword,
 } from "./firebase-config.js";
 import { createTreeViewer } from "../../new.js";
+
+export const AUTH_ERROR_MESSAGES = {
+  "auth/requires-recent-login":
+    "This operation is sensitive and requires a fresh login.",
+  "auth/user-mismatch":
+    "The credentials provided do not match the current logged-in user.",
+  "auth/wrong-password": "The password you entered is incorrect.",
+  "auth/too-many-requests": "Too many failed attempts. Please try again later.",
+  "auth/user-disabled": "This user account has been disabled.",
+  "auth/user-not-found": "No user account found matching these credentials.",
+  "auth/email-already-exists":
+    "This email is already registered to another account.",
+  "auth/invalid-credential": "Invalid credentials provided.",
+  "auth/invalid-email": "The email address is improperly formatted.",
+  "auth/weak-password": "Password is too weak. Choose a stronger password.",
+};
+
+const redirectAfterDelay = (url = "../index.html", delayMs = 1500) => {
+  setTimeout(() => {
+    window.location.href = url;
+  }, delayMs);
+};
+
+export function showAuthErrorToast(err) {
+  const mappedMessage = AUTH_ERROR_MESSAGES[err.message];
+  if (mappedMessage) showToast(mappedMessage, "warning");
+  else showToast("Error authenticating: ", "danger", err);
+}
+
+export async function login(email, password) {
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+    await updateDoc(doc(db, "users", userCredential.user.uid), {
+      lastSignInAt: serverTimestamp(),
+    });
+    showToast("Successfully logged in!", "success");
+    redirectAfterDelay();
+  } catch (error) {
+    showAuthErrorToast(error);
+  }
+}
+
+export async function register(email, password) {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+    const user = userCredential.user;
+
+    if (user) {
+      try {
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          createdAt: serverTimestamp(),
+          lastSignInAt: serverTimestamp(),
+          uid: user.uid,
+          roleId: "customer",
+        });
+      } catch (e) {
+        showToast("Create profile failed: ", "danger", e);
+        return;
+      }
+    }
+
+    showToast("Successfully registered!", "success");
+    redirectAfterDelay();
+  } catch (e) {
+    showAuthErrorToast(e);
+  }
+}
+
+export async function signInWithProvider(providerClass) {
+  const providerInstance = new providerClass();
+  try {
+    const result = await signInWithPopup(auth, providerInstance);
+    const userRef = doc(db, "users", result.user.uid);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      await updateDoc(userRef, {
+        lastSignInAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(userRef, {
+        email: result.user.email,
+        createdAt: serverTimestamp(),
+        lastSignInAt: serverTimestamp(),
+        uid: result.user.uid,
+        roleId: "customer",
+      });
+    }
+
+    showToast("Signed in successfully!", "success");
+    redirectAfterDelay();
+  } catch (error) {
+    if (error.code === "auth/account-exists-with-different-credential") {
+      showToast(
+        "Account exists with a different credential. Completing account verification...",
+        "warning",
+      );
+
+      const pendingCredential = providerClass.credentialFromError(error);
+
+      if (auth.currentUser && pendingCredential) {
+        await linkWithCredential(auth.currentUser, pendingCredential);
+        showToast("Account linked successfully!", "success");
+        redirectAfterDelay();
+        return;
+      } else {
+        try {
+          await openLinkAccountModal(
+            pendingCredential.email,
+            pendingCredential,
+            providerClass,
+          );
+        } catch (e) {
+          showToast("Error linking provider: ", "danger", e);
+        }
+      }
+    } else showAuthErrorToast(error);
+  }
+}
 
 /**
  * @param {string} message
@@ -41,7 +180,7 @@ export function showToast(message, type = "danger", error, delay = 3000) {
   toastEl.innerHTML = `
     <div class="d-flex">
       <div class="toast-body">
-        ${type === "danger" ? message + error.message : message}
+        ${type === "danger" && error ? message + error.message : message}
       </div>
       <button
         type="button"
@@ -68,7 +207,7 @@ export function showToast(message, type = "danger", error, delay = 3000) {
       console.log(message);
       break;
     case "danger":
-      console.error(error);
+      if (error) console.error(error);
       break;
     case "warning":
       console.warn(message);
@@ -81,10 +220,15 @@ export function showToast(message, type = "danger", error, delay = 3000) {
  * @param {boolean} htmlElement
  * @returns
  */
-export function showModal(modalBody, modalTitle, htmlElement = false) {
+export function showModal(
+  modalBody,
+  modalTitle,
+  htmlElement = false,
+  externalClasses = "",
+) {
   const ModalEl = document.createElement("div");
   if (!htmlElement)
-    ModalEl.innerHTML = `<div class="modal-dialog modal-lg">
+    ModalEl.innerHTML = `<div class="modal-dialog modal-lg ${externalClasses}">
     <div class="modal-content">
       <div class="modal-header">
         <h1 class="modal-title fs-5" id="exampleModalLabel">${modalTitle}</h1>
@@ -137,6 +281,7 @@ export async function renderQueryResult(docRef, container, renderFunction) {
   const sortedDocs = querySnapshot.docs.sort((a, b) =>
     a.id.localeCompare(b.id, undefined, { numeric: true }),
   );
+  console.log(sortedDocs);
   container.innerHTML = "";
   for (const docSnap of sortedDocs) {
     const cardEl = renderFunction(docSnap);
@@ -175,6 +320,8 @@ export function deleteDocEveLis(delOrCancel = "delete") {
           </div>
           `,
       `<div class="fs-5">Confirm ${delOrCancel}?</div>`,
+      false,
+      "modal-dialog-centered",
     );
     ModalEl.querySelector(".confirm-delete-btn").addEventListener(
       "click",
@@ -210,7 +357,6 @@ export function editJsonEveLis(parentEl, docSnap, renderFunc) {
 
     const editorContainer = document.createElement("div");
     delete data.createdAt;
-    delete data.id;
     const jsonString = JSON.stringify(data, null, 2);
 
     editorContainer.innerHTML = `
@@ -360,13 +506,36 @@ export async function createNavbar(isAdmin_, user) {
             }
             ${
               user
-                ? `<li class="nav-item nav-tab">
-              <a class="nav-link" id="log-out-btn" href="./pages/auth.html"><i class="bi bi-box-arrow-right me-1"></i> Log Out</a>
+                ? `
+            <li class="nav-item dropdown ms-auto" id="userNavDropdown">
+              <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-person-circle fs-5"></i>
+                <span id="navUsername">Account</span>
+              </a>
+
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+
+                <li>
+                  <a class="dropdown-item d-flex align-items-center gap-2" href="./pages/user.html">
+                    <i class="bi bi-info-circle"></i> Account Info
+                  </a>
+                </li>
+
+                <li><hr class="dropdown-divider"></li>
+
+                <li>
+                  <button class="dropdown-item text-danger d-flex align-items-center gap-2" id="log-out-btn" type="button">
+                    <i class="bi bi-box-arrow-right"></i> Sign Out
+                  </button>
+                </li>
+
+              </ul>
             </li>
+
             <li class="nav-item nav-tab">
               <a class="nav-link" href="./pages/orders.html"><i class="bi bi-bag-check"></i> My Orders</a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item nav-tab">
               <a class="nav-link position-relative me-3" href="./pages/cart.html">
                 <i class="bi bi-cart3 fs-5"></i> Cart
                 <span class="text-center badge rounded-pill bg-danger" id="cart-badge">
@@ -396,51 +565,55 @@ export async function createNavbar(isAdmin_, user) {
  * @returns {string}
  */
 export async function createOrder(product, user, quantity = 1) {
-  const newOrderRef = doc(collection(db, "orders"));
-  const title = product.volumeInfo?.title || "Untitled",
-    unitPrice = product.computedPrice,
-    infoLink = product.volumeInfo?.infoLink || "",
-    rawImageLink =
-      product.volumeInfo?.imageLinks?.thumbnail ||
-      product.volumeInfo?.imageLinks?.smallThumbnail ||
-      "",
-    shippingFee = 3.0;
-  const coverUrl = rawImageLink
-    ? `${rawImageLink}&fife=w800-h1000`
-    : `https://books.google.com/books/publisher/content/images/frontcover/${product.id}?fife=w800-h1000&source=gbs_api`;
+  try {
+    const newOrderRef = doc(collection(db, "orders"));
+    const title = product.volumeInfo?.title || "Untitled",
+      unitPrice = product.computedPrice,
+      infoLink = product.volumeInfo?.infoLink || "",
+      rawImageLink =
+        product.volumeInfo?.imageLinks?.thumbnail ||
+        product.volumeInfo?.imageLinks?.smallThumbnail ||
+        "",
+      shippingFee = 3.0;
+    const coverUrl = rawImageLink
+      ? `${rawImageLink}&fife=w800-h1000`
+      : `https://books.google.com/books/publisher/content/images/frontcover/${product.id}?fife=w800-h1000&source=gbs_api`;
 
-  const order = {
-    customer: {
-      uid: user.uid,
-      displayName: user.displayName || "Customer",
-      email: user.email,
-    },
-    item: {
-      productId: product.id,
-      title: title,
-      coverUrl: coverUrl,
-      infoLink: infoLink,
-    },
-    quantity: quantity,
-    pricing: {
-      shippingFee: shippingFee,
-      unitPrice: unitPrice,
-      totalAmount: unitPrice.amount * quantity + shippingFee || NaN,
-    },
-    status: "processing",
-    paymentStatus: "paid",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  await setDoc(newOrderRef, order);
+    const order = {
+      customer: {
+        uid: user.uid,
+        displayName: user.displayName || "Customer",
+        email: user.email,
+      },
+      item: {
+        productId: product.id,
+        title: title,
+        coverUrl: coverUrl,
+        infoLink: infoLink,
+      },
+      quantity: quantity,
+      pricing: {
+        shippingFee: shippingFee,
+        unitPrice: unitPrice,
+        totalAmount: unitPrice.amount * quantity + shippingFee || NaN,
+      },
+      status: "processing",
+      paymentStatus: "paid",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(newOrderRef, order);
+    showToast("Successfully created an order", "success");
+  } catch (e) {
+    showToast("Error creating order", "danger", e);
+  }
   return newOrderRef.id;
 }
 
 /**
  * @param {*} bookData
  */
-export function addToCart(bookData) {
+export function addToCart(bookData, cardQtyBadge = null) {
   var cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
   if (cartArr.find((c) => c.id === bookData.id)) {
     showToast("This product is already in cart", "info");
@@ -449,6 +622,11 @@ export function addToCart(bookData) {
   cartArr.push(bookData);
   sessionStorage.setItem("CART_KEY", JSON.stringify(cartArr));
   showToast("Successfully add product to cart", "success");
+  if (cardQtyBadge) {
+    cardQtyBadge.innerHTML = JSON.parse(
+      sessionStorage.getItem("CART_KEY") ?? "[]",
+    ).length;
+  }
 }
 
 /**
@@ -534,8 +712,10 @@ export function setBootstrapTheme(theme) {
       ? "dark"
       : "light";
     document.documentElement.setAttribute("data-bs-theme", systemTheme);
+    localStorage.setItem("color-scheme-perferance", systemTheme);
   } else {
     document.documentElement.setAttribute("data-bs-theme", theme);
+    localStorage.setItem("color-scheme-perferance", theme);
   }
 }
 
@@ -550,8 +730,7 @@ export function createSetThemeEl() {
     data-bs-toggle="dropdown" 
     aria-expanded="false" 
     aria-label="Toggle theme">
-    <i class="bi bi-sun-fill me-2 id="theme-icon-active"></i>
-    <span class="d-none d-sm-inline">Theme</span>
+    <i class="bi bi-circle-half id="theme-icon-active"></i>
   </button>
 
   <ul class="dropdown-menu shadow" aria-labelledby="bd-theme">
@@ -571,11 +750,265 @@ export function createSetThemeEl() {
       </button>
     </li>
   </ul>`;
+  const setThemeIcon = (theme) => {
+    var icon = "";
+    switch (theme) {
+      case "light":
+        icon = `<i class="bi bi-sun-fill me-2"></i>`;
+        break;
+      case "dark":
+        icon = `<i class="bi bi-moon-stars-fill me-2"></i>`;
+        break;
+      case "auto":
+        icon = `<i class="bi bi-circle-half me-2"></i>`;
+    }
+    themeDropDown.querySelector("#bd-theme").innerHTML = icon;
+  };
+  const localStorage_theme_perferance =
+    localStorage.getItem("color-scheme-perferance") ?? "auto";
+  setBootstrapTheme(localStorage_theme_perferance);
+  setThemeIcon(localStorage_theme_perferance);
   themeDropDown.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-theme]");
     if (!btn) return;
     const theme = btn.dataset.theme;
+    setThemeIcon(theme);
     setBootstrapTheme(theme);
   });
   document.body.appendChild(themeDropDown);
+}
+
+export async function openLinkAccountModal(
+  email,
+  pendingCred,
+  targetProviderId,
+) {
+  const auth = getAuth();
+
+  const modalContainer = document.createElement("div");
+
+  modalContainer.innerHTML = `
+    <p class="small text-body-secondary mb-3">
+      An account already exists under <strong>${email}</strong>. Verify ownership using your existing sign-in method to complete the link:
+    </p>
+
+    <!-- Password Option -->
+    <div data-provider="password" class="auth-option-block mb-3">
+      <label for="modalAuthPassword" class="form-label small fw-semibold">Sign in with Password</label>
+      <div class="input-group input-group-sm">
+        <input type="password" id="modalAuthPassword" class="form-control" placeholder="Enter password">
+        <button class="btn btn-primary" type="button" id="submitPasswordBtn">Sign In & Link</button>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div data-divider class="text-center my-2 text-body-secondary small">-- OR --</div>
+
+    <!-- OAuth Options -->
+    <div class="d-grid gap-2">
+      <button type="button" data-provider="google.com" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center gap-2 auth-provider-btn">
+        <i class="bi bi-google"></i> Authenticate with Google
+      </button>
+
+      <button type="button" data-provider="github.com" class="btn btn-sm btn-outline-dark d-flex align-items-center justify-content-center gap-2 auth-provider-btn">
+        <i class="bi bi-github"></i> Authenticate with GitHub
+      </button>
+    </div>
+  `;
+
+  const targetEl = modalContainer.querySelector(
+    `[data-provider="${targetProviderId}"]`,
+  );
+  if (targetEl) targetEl.style.display = "none";
+
+  if (targetProviderId === "password") {
+    const divider = modalContainer.querySelector("[data-divider]");
+    if (divider) divider.style.display = "none";
+  }
+  const passwordBtn = modalContainer.querySelector("#submitPasswordBtn");
+  if (passwordBtn) {
+    passwordBtn.addEventListener("click", async () => {
+      const password =
+        modalContainer.querySelector("#modalAuthPassword")?.value;
+      if (!password) return;
+
+      try {
+        const userCred = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password,
+        );
+        await linkWithCredential(userCred.user, pendingCred);
+        showToast("Successfully linked account!", "success");
+        modal.hide();
+      } catch (err) {
+        showToast(`Authentication failed: ${err.message}`, "danger");
+      }
+    });
+  }
+  modalContainer.querySelectorAll(".auth-provider-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      const providerId = e.currentTarget.getAttribute("data-provider");
+      let oauthProvider;
+
+      if (providerId === "google.com") oauthProvider = new GoogleAuthProvider();
+      if (providerId === "github.com") oauthProvider = new GithubAuthProvider();
+
+      if (oauthProvider) {
+        try {
+          const result = await signInWithPopup(auth, oauthProvider);
+          await linkWithCredential(result.user, pendingCred);
+          showToast("Successfully linked accounts!", "success");
+          modal.hide();
+        } catch (err) {
+          showToast(`Linking failed: ${err.message}`, "danger");
+        }
+      }
+    });
+  });
+  const { modal } = showModal(modalContainer, "Verify Existing Account", true);
+}
+
+export function OpenReauthModal(user) {
+  return new Promise((resolve) => {
+    const email = user.email;
+    const modalBodyEl = document.createElement("div");
+
+    modalBodyEl.innerHTML = `
+      <h5 class="mb-3">Please re-authenticate to continue.</h5>
+      <div class="input-group mb-3">
+        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+        <input type="email" class="form-control" id="email-input" value="${email}" readonly />
+      </div>
+
+      <div class="input-group mb-3">
+        <span class="input-group-text"><i class="bi bi-key"></i></span>
+        <input type="password" class="form-control" id="password-input" placeholder="Password" />
+      </div>
+
+      <button class="btn btn-primary w-100 mb-3" id="re-auth-btn">
+        Re-authenticate
+      </button>
+
+      <div class="text-center text-muted small my-2">-- OR --</div>
+
+      <div class="d-flex gap-2 justify-content-center">
+        <button class="btn btn-link text-decoration-none w-50" id="google-btn"><i class="bi bi-google me-1"></i> Google</button>
+        <button class="btn btn-link text-decoration-none w-50" id="github-btn"><i class="bi bi-github me-1"></i> GitHub</button>
+      </div>`;
+
+    const PasswordInput = modalBodyEl.querySelector("#password-input");
+
+    const { ModalEl, modal } = showModal(
+      modalBodyEl,
+      "Authentication Required",
+      true,
+    );
+
+    let isAuthenticated = false;
+
+    modalBodyEl.addEventListener("click", async (e) => {
+      const re_auth_btn = e.target.closest("#re-auth-btn");
+      const google_btn = e.target.closest("#google-btn");
+      const github_btn = e.target.closest("#github-btn");
+
+      if (!re_auth_btn && !google_btn && !github_btn) return;
+      e.preventDefault();
+
+      try {
+        if (re_auth_btn) {
+          const password = PasswordInput.value.trim();
+          if (!password) {
+            showToast("Please enter your password", "warning");
+            return;
+          }
+          const credential = EmailAuthProvider.credential(email, password);
+          await reauthenticateWithCredential(user, credential);
+        } else {
+          var provider;
+          if (google_btn) provider = new GoogleAuthProvider();
+          if (github_btn) provider = new GithubAuthProvider();
+          if (provider) await reauthenticateWithPopup(user, provider);
+        }
+
+        isAuthenticated = true;
+        showToast("Successfully re-authenticated", "success");
+        modal.hide();
+      } catch (err) {
+        showToast("Re-authentication failed", "danger", err);
+      }
+    });
+
+    // Resolve the promise when the modal finishes closing
+    ModalEl.addEventListener("hidden.bs.modal", () => {
+      resolve(isAuthenticated);
+    });
+  });
+}
+
+export async function deleteUserAndDoc(user) {
+  try {
+    const authenticated = await OpenReauthModal(user);
+    if (!authenticated) return;
+    await deleteDoc(doc(db, "users", user.uid));
+    await deleteUser(user);
+    redirectAfterDelay();
+  } catch (e) {
+    showToast("Error deleting user: ", "danger", e);
+  }
+}
+
+export async function changeUserPassword(user) {
+  try {
+    const authenticated = await OpenReauthModal(user);
+    if (!authenticated) return;
+    const { ModalEl, modal } = showModal(`<div class="card shadow-sm mb-4">
+  <div class="card-header bg-body-tertiary fw-bold">Change Password</div>
+  <div class="card-body">
+    <form id="change-password-form">
+      <div class="mb-3">
+        <label for="new-password" class="form-label text-muted small fw-semibold">New Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock"></i></span>
+          <input type="password" class="form-control" id="new-password" placeholder="Enter new password" required />
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="confirm-password" class="form-label text-muted small fw-semibold">Confirm New Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+          <input type="password" class="form-control" id="confirm-password" placeholder="Confirm new password" required />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="update-pass-btn">
+        <i class="bi bi-shield-lock me-1"></i> Update Password
+      </button>
+    </form>
+  </div>
+</div>`);
+    ModalEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById("new-password").value.trim();
+      const confirmPassword = document
+        .getElementById("confirm-password")
+        .value.trim();
+      if (!newPassword || !confirmPassword) {
+        showToast("Please fill in all the fields", "waring");
+      }
+      if (confirmPassword != newPassword) {
+        showToast("New passwords do not matched", "warning");
+      }
+      try {
+        await updatePassword(user, newPassword).then(() => {
+          modal.hide();
+        });
+        showToast("Successfully updated password", "success");
+      } catch (e) {
+        showToast("Error updating password: ", "danger", e);
+      }
+    });
+  } catch (e) {
+    showToast("Error changing password: ", "danger", e);
+  }
 }

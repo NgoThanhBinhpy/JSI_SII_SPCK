@@ -14,7 +14,6 @@ import {
   isAdmin,
   createNavbar,
   showModal,
-  getCurrentUser,
   addToCart,
   createOrder,
   viewRawJsonEveLis,
@@ -22,7 +21,7 @@ import {
   createSetThemeEl,
 } from "./utils.js";
 import { createCustomCss } from "../../new.js";
-
+createSetThemeEl();
 function disposeAllTooltips() {
   const tooltipTriggerList = document.querySelectorAll(
     '[data-bs-toggle="tooltip"]',
@@ -41,17 +40,19 @@ async function renderAllBookCards(currUser) {
     container.children.length + " Books";
   container.addEventListener("click", (e) => {
     const previewBtn = e.target.closest(".view-metadata");
-    if (!previewBtn) return;
-    const bookDoc = sortedDocs.find((c) => c.id === previewBtn.dataset.uid);
-    if (!bookDoc) {
-      showToast("Book not found", "danger", { message: "" });
-      return;
-    }
-    const data = bookDoc.data();
-    const info = data.volumeInfo || {};
+    const addToCartBtn = e.target.closest(".add-to-cart");
+    const placeOrderBtn = e.target.closest(".place-order");
+    if (previewBtn) {
+      const bookDoc = sortedDocs.find((c) => c.id === previewBtn.dataset.uid);
+      if (!bookDoc) {
+        showToast("Book not found", "danger", { message: "" });
+        return;
+      }
+      const data = bookDoc.data();
+      const info = data.volumeInfo || {};
 
-    const { ModalEl, modal } = showModal(
-      `<div class="row g-4 align-items-start">
+      const { ModalEl, modal } = showModal(
+        `<div class="row g-4 align-items-start">
       <div class="col-md-4 text-center">
         <img 
           class="img-fluid rounded-3 shadow-sm object-fit-contain"
@@ -120,11 +121,25 @@ async function renderAllBookCards(currUser) {
           : ""
       }
     </div>`,
-      info.title || "Book Details",
-    );
-    if (!currUser) {
-      disposeAllTooltips();
-      return;
+        info.title || "Book Details",
+      );
+      if (!currUser) {
+        disposeAllTooltips();
+        return;
+      }
+    } else if (addToCartBtn) {
+      const bookDoc = sortedDocs.find((c) => c.id === addToCartBtn.dataset.uid);
+      const data = bookDoc.data();
+      const cartBadge = document.querySelector("#cart-badge");
+      addToCart(data, cartBadge);
+    } else if (placeOrderBtn) {
+      const bookDoc = sortedDocs.find(
+        (c) => c.id === placeOrderBtn.dataset.uid,
+      );
+      const data = bookDoc.data();
+      const card_footer = placeOrderBtn.closest(".card-footer");
+      const qty = card_footer.querySelector(".qty-selector").value;
+      createOrder(data, currUser, Number(qty));
     }
   });
 }
@@ -160,7 +175,6 @@ function renderBookCard(doc) {
                   <i class="bi bi-journal-text me-1"></i>View Metadata
                 </a>
               </li>
-              <li><hr class="dropdown-divider"></li>
             </ul>
         </div>
 
@@ -191,6 +205,41 @@ function renderBookCard(doc) {
           </div>
         </div>
 
+        <div class="card-footer bg-transparent border-secondary-subtle p-3">
+          <div class="row g-2 align-items-center">
+            
+            <div class="col-12 col-sm-5">
+              <div class="input-group input-group-sm bg-body-tertiary p-1 rounded-3 border border-secondary-subtle align-items-center gap-2">
+                
+                <label class="ps-2 pe-1 fw-semibold text-body-secondary small mb-0 user-select-none">
+                  Qty
+                </label>
+
+                <input 
+                  type="number"
+                  class="form-control form-control-sm text-center bg-body text-body border-secondary-subtle rounded-2 px-1 qty-selector" 
+                  value="1" 
+                  min="1" 
+                  max="99">
+
+              </div>
+            </div>
+
+            <div class="col-6 col-sm-3">
+              <button class="btn btn-sm btn-outline-primary w-100 d-flex align-items-center justify-content-center add-to-cart" title="Add to Cart" data-uid="${id}">
+                <i class="bi bi-cart-plus fs-6"></i>
+              </button>
+            </div>
+
+            <div class="col-6 col-sm-4">
+              <button class="btn btn-sm btn-primary w-100 fw-semibold place-order" data-uid="${id}">
+                Buy Now
+              </button>
+            </div>
+
+          </div>
+        </div>
+
       </div>
   `;
   viewRawJsonEveLis(cardEl, data);
@@ -198,7 +247,6 @@ function renderBookCard(doc) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  createSetThemeEl();
   const { isAdmin_, user } = await isAdmin(true);
   createCustomCss();
   await createNavbar(isAdmin_, user);

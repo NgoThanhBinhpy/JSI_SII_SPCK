@@ -1,13 +1,13 @@
 import {
   showToast,
-  addToCart,
+  createSetThemeEl,
   removeFromCart,
   createOrder,
   getCurrentUser,
-  showModal,
+  viewRawJsonEveLis,
 } from "./utils.js";
-import { createCustomCss, createTreeViewer } from "../../new.js";
-
+import { createCustomCss } from "../../new.js";
+createSetThemeEl();
 function renderCart(user) {
   const cartBody = document.getElementById("cart-body");
   const cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
@@ -21,7 +21,6 @@ function renderCart(user) {
   });
   cartBody.addEventListener("click", (e) => {
     const placeOrderBtn = e.target.closest(".place-order-btn");
-    const viewRawJsonBtn = e.target.closest(".view-raw-json-btn");
     if (placeOrderBtn) {
       try {
         const cardId = placeOrderBtn.dataset.id;
@@ -38,16 +37,6 @@ function renderCart(user) {
         showToast("Error creating order", "danger", e);
       }
       return;
-    }
-    if (viewRawJsonBtn) {
-      try {
-        const cardId = viewRawJsonBtn.dataset.id;
-        const cartElement = cartArr.find((c) => c.id === cardId);
-        console.log(cardId, cartElement);
-        showModal(createTreeViewer(cartElement));
-      } catch (e) {
-        showToast("Error creating modal: ", "danger", e);
-      }
     }
   });
 }
@@ -91,16 +80,17 @@ function renderBookCard(item) {
             <i class="bi bi-lightning-charge me-1 fs-6"></i>
             <span class="fw-semibold small">Buy now</span>
         </button>
-        <button class="btn btn-link text-danger p-0 mt-2 text-decoration-none small btn-remove-item" data-id="${item.id}">
+        <button class="btn btn-link text-danger p-0 mt-2 text-decoration-none small" data-tool="delete" data-id="${item.id}">
           <i class="bi bi-trash3 me-1"></i> Remove
         </button>
-        <button class="btn btn-link text-secondary text-decoration-none view-raw-json-btn" data-id="${item.id}">
+        <button class="btn btn-link text-secondary text-decoration-none" data-tool="view-raw-json" data-id="${item.id}">
             <i class="bi bi-code-slash me-1"></i> View Raw JSON
           </button>
       </div>
 
     </div>
   </div>`;
+  viewRawJsonEveLis(cardEl, item);
   return cardEl;
 }
 
@@ -109,7 +99,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const currUser = await getCurrentUser();
   renderCart(currUser);
   document.body.addEventListener("click", (e) => {
-    const removeBtn = e.target.closest(".btn-remove-item");
+    const removeBtn = e.target.closest('[data-tool=delete""]');
     if (!removeBtn) return;
     console.log(removeBtn);
     removeFromCart({ id: removeBtn.dataset.id });

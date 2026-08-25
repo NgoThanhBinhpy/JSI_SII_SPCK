@@ -9,7 +9,7 @@ import {
 } from "./utils.js";
 import { db, collection } from "./firebase-config.js";
 import { createCustomCss } from "../../new.js";
-
+createSetThemeEl();
 function renderItem(docSnap) {
   const data = docSnap.data();
   const docSnapId = docSnap.id;
@@ -113,7 +113,10 @@ function renderOrder(docSnap) {
   const customerEmail = data.customer?.email || "No Email";
   const quantity = data.quantity || 1;
   const status = data.status || "processing";
-
+  const statusClass =
+    status == "delivered" || status == "completed"
+      ? "bg-success-subtle text-success"
+      : "bg-warning-subtle text-warning";
   cardCol.innerHTML = `
     <div class="card h-100 border-0 shadow-sm rounded-3">
       <div class="card-header p-2 d-flex flex-column justify-content-between gap-2">
@@ -157,7 +160,7 @@ function renderOrder(docSnap) {
       <div class="card-footer p-2 d-flex flex-column justify-content-between gap-2 bg-body">
         <div class="d-flex align-items-center justify-content-between pt-2">
           <span class="fw-bold text-success fs-6">${totalVal}</span>
-          <span class="badge text-capitalize bg-${status === "completed" ? "success" : "warning"}-subtle text-${status === "completed" ? "success" : "warning"} px-3 py-2">
+          <span class="badge text-capitalize ${statusClass} px-3 py-2">
             ${status}
           </span>
         </div>
@@ -180,7 +183,6 @@ async function renderOrders() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  createSetThemeEl();
   const { isAdmin_, user } = await isAdmin(true);
   if (!isAdmin_) window.location.href = "../index.html";
   await renderItems();

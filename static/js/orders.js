@@ -1,24 +1,15 @@
+import { collection, where, query, db } from "./firebase-config.js";
 import {
-  collection,
-  where,
-  query,
-  db,
-  deleteDoc,
-  doc,
-  getDocs,
-  serverTimestamp,
-  Timestamp,
-} from "./firebase-config.js";
-import {
-  showModal,
   showToast,
   isAdmin,
   deleteDocEveLis,
   viewRawJsonEveLis,
   renderQueryResult,
+  createSetThemeEl,
+  getCurrentUser,
 } from "./utils.js";
 import { createCustomCss } from "../../new.js";
-
+createSetThemeEl();
 async function renderAllOrders(user) {
   const uid = user.uid;
   const container = document.getElementById("orders-container");
@@ -90,7 +81,7 @@ function renderOrderCard(orderDoc) {
   cardEl.innerHTML = `
       <div class="card border-0 shadow-sm">
         
-        <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="card-header bg-body py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
           <div>
             <span class="text-muted small">Order ID:</span>
             <strong class="font-monospace ms-1">${orderId}</strong>
@@ -139,7 +130,7 @@ function renderOrderCard(orderDoc) {
           </div>
         </div>
 
-        <div class="card-footer bg-light py-2 d-flex justify-content-between align-items-center">
+        <div class="card-footer bg-body-tertiary py-2 d-flex justify-content-between align-items-center">
           <div>
             ${
               isProcessing
@@ -166,7 +157,7 @@ function renderOrderCard(orderDoc) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const { user, isAdmin_ } = await isAdmin(true);
+  const user = await getCurrentUser();
   createCustomCss();
   await renderAllOrders(user);
   deleteDocEveLis("cancel");

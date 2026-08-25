@@ -40,6 +40,13 @@ import {
   linkWithPopup,
   linkWithCredential,
   OAuthProvider,
+  reauthenticateWithPopup,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  sendEmailVerification,
+  deleteUser,
+  updatePassword,
+  updateEmail,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -75,4 +82,11 @@ export {
   where,
   writeBatch,
   Timestamp,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  EmailAuthProvider,
+  sendEmailVerification,
+  deleteUser,
+  updateEmail,
+  updatePassword,
 };
