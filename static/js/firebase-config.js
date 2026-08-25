@@ -1,11 +1,10 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyCuxguSKYncNh_9-qlOjl4Zeck1IyWXj68",
-  authDomain: "sh-jsi28-thanhbinh.firebaseapp.com",
-  projectId: "sh-jsi28-thanhbinh",
-  storageBucket: "sh-jsi28-thanhbinh.firebasestorage.app",
-  messagingSenderId: "262894424190",
-  appId: "1:262894424190:web:6a7b6d013283fb345ac82f",
-  measurementId: "G-47XPE7RCK0",
+  apiKey: import.meta.env.FIREBASE_API_KEY,
+  authDomain: import.meta.env.FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.FIREBASE_APP_ID,
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";

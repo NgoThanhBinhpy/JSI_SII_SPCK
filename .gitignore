@@ -1,0 +1,8 @@
+# Environment variables (Sensitive secrets)
+.env
+.env.local
+.env.*.local
+
+# Ignore logs & dependencies
+node_modules/
+*.log
