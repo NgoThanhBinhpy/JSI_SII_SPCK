@@ -223,7 +223,7 @@ This is a static ES-module site. Serve the project through a local HTTP server i
 
 For example, from the project folder:
 
-```text
+```bash
 python -m http.server 8000
 ```
 
