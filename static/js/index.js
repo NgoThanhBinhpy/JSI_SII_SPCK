@@ -1,24 +1,15 @@
-import {
-  auth,
-  signOut,
-  db,
-  serverTimestamp,
-  collection,
-  doc,
-  setDoc,
-  getDocs,
-  onSnapshot,
-} from "./firebase-config.js";
+import { db, collection } from "./firebase-config.js";
 import {
   showToast,
-  isAdmin,
-  createNavbar,
+  updateNavbar,
   showModal,
   addToCart,
   createOrder,
   viewRawJsonEveLis,
   renderQueryResult,
   createSetThemeEl,
+  getCurrentUser,
+  isAdmin,
 } from "./utils.js";
 import { createCustomCss } from "../../new.js";
 createSetThemeEl();
@@ -51,7 +42,7 @@ async function renderAllBookCards(currUser) {
       const data = bookDoc.data();
       const info = data.volumeInfo || {};
 
-      const { ModalEl, modal } = showModal(
+      showModal(
         `<div class="row g-4 align-items-start">
       <div class="col-md-4 text-center">
         <img 
@@ -247,8 +238,9 @@ function renderBookCard(doc) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const { isAdmin_, user } = await isAdmin(true);
   createCustomCss();
-  await createNavbar(isAdmin_, user);
-  await renderAllBookCards(user);
+  const user = await getCurrentUser();
+  renderAllBookCards(user);
+  const isAdmin_ = await isAdmin(user);
+  updateNavbar(isAdmin_, user);
 });

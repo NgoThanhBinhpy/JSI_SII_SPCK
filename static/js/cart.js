@@ -3,8 +3,10 @@ import {
   createSetThemeEl,
   removeFromCart,
   createOrder,
-  getCurrentUser,
+  updateNavbar,
+  isAdmin,
   viewRawJsonEveLis,
+  getCurrentUser,
 } from "./utils.js";
 import { createCustomCss } from "../../new.js";
 createSetThemeEl();
@@ -96,12 +98,14 @@ function renderBookCard(item) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   createCustomCss();
-  const currUser = await getCurrentUser();
-  renderCart(currUser);
   document.body.addEventListener("click", (e) => {
-    const removeBtn = e.target.closest('[data-tool=delete""]');
+    const removeBtn = e.target.closest('[data-tool="delete"]');
     if (!removeBtn) return;
     console.log(removeBtn);
-    removeFromCart({ id: removeBtn.dataset.id });
+    removeFromCart(removeBtn.dataset.id);
   });
+  const user = await getCurrentUser();
+  renderCart(user);
+  const isAdmin_ = await isAdmin(user);
+  updateNavbar(isAdmin_, user);
 });

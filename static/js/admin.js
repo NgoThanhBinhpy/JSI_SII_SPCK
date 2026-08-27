@@ -6,10 +6,15 @@ import {
   editJsonEveLis,
   renderQueryResult,
   createSetThemeEl,
+  updateNavbar,
+  getCurrentUser,
 } from "./utils.js";
 import { db, collection } from "./firebase-config.js";
 import { createCustomCss } from "../../new.js";
+
+// Initialize UI theme elements
 createSetThemeEl();
+
 function renderItem(docSnap) {
   const data = docSnap.data();
   const docSnapId = docSnap.id;
@@ -17,17 +22,22 @@ function renderItem(docSnap) {
   cardCol.className = "col-12 col-md-6 col-lg-4";
   cardCol.dataset.parentId = docSnapId;
 
-  const authors = data.volumeInfo?.authors?.join(", ") || "Unknown Author";
-  const publisher = data.volumeInfo?.publisher || "Unknown Publisher";
-  const publishedDate =
-    data.volumeInfo?.publishedDate?.replace(/-/g, "/") || "N/A";
+  // Safe navigation fallbacks
+  const volumeInfo = data.volumeInfo || {};
+  const title = volumeInfo.title || "Untitled";
+  const subtitle = volumeInfo.subtitle || "";
+  const authors = volumeInfo.authors?.join(", ") || "Unknown Author";
+  const publisher = volumeInfo.publisher || "Unknown Publisher";
+  const publishedDate = volumeInfo.publishedDate?.replace(/-/g, "/") || "N/A";
+  const categories = volumeInfo.categories?.join(", ") || "General";
+
   const price = data.computedPrice
     ? `${data.computedPrice.amount} ${data.computedPrice.currency}`
     : "Free";
-  const categories = data.volumeInfo?.categories?.join(", ") || "General";
+
   const rawImageLink =
-    data.volumeInfo?.imageLinks?.thumbnail ||
-    data.volumeInfo?.imageLinks?.smallThumbnail ||
+    volumeInfo.imageLinks?.thumbnail ||
+    volumeInfo.imageLinks?.smallThumbnail ||
     "";
   const coverUrl = rawImageLink
     ? `${rawImageLink}&fife=w800-h1000`
@@ -65,10 +75,10 @@ function renderItem(docSnap) {
       </div>
       <div class="card-body p-2 d-flex flex-column justify-content-between gap-2">
         <div class="d-flex gap-3 align-items-start">
-          <img src="${coverUrl}" alt="${data.volumeInfo?.title || "Book"}" class="rounded object-fit-cover shadow-sm flex-shrink-0" style="width: 7.5rem; height: 9rem;" />
+          <img src="${coverUrl}" alt="${title}" class="rounded object-fit-cover shadow-sm flex-shrink-0" style="width: 7.5rem; height: 9rem;" />
           <div class="overflow-hidden">
-            <p class="card-title text-truncate mb-0 mt-2 fs-5 fw-semibold" title="${data.volumeInfo?.title || "Untitled"}">${data.volumeInfo?.title || "Untitled"}</p>
-            <p class="text-truncate mb-2">${data.volumeInfo.subtitle}</p>
+            <p class="card-title text-truncate mb-0 mt-2 fs-5 fw-semibold" title="${title}">${title}</p>
+            ${subtitle ? `<p class="text-truncate mb-2">${subtitle}</p>` : ""}
             <p class="card-subtitle text-muted small mb-1 text-truncate"><i class="bi bi-person me-1 text-primary"></i>${authors}</p>
             <small class="text-muted d-block text-truncate"><i class="bi bi-building me-1 text-primary"></i>${publisher} • ${publishedDate}</small>
           </div>
@@ -91,7 +101,13 @@ function renderItem(docSnap) {
 async function renderItems() {
   try {
     const container = document.querySelector("#products-container");
-    await renderQueryResult(collection(db, "products"), container, renderItem);
+    if (container) {
+      await renderQueryResult(
+        collection(db, "products"),
+        container,
+        renderItem,
+      );
+    }
   } catch (error) {
     showToast("Failed to load products: ", "danger", error);
   }
@@ -108,15 +124,17 @@ function renderOrder(docSnap) {
     data.pricing?.totalAmount != null && data.pricing?.unitPrice?.currency
       ? `${data.pricing.totalAmount} ${data.pricing.unitPrice.currency}`
       : "N/A";
+
   const itemTitle = data.item?.title || "Untitled Product";
   const coverUrl = data.item?.coverUrl || "https://via.placeholder.com/54x72";
   const customerEmail = data.customer?.email || "No Email";
   const quantity = data.quantity || 1;
   const status = data.status || "processing";
   const statusClass =
-    status == "delivered" || status == "completed"
+    status === "delivered" || status === "completed"
       ? "bg-success-subtle text-success"
       : "bg-warning-subtle text-warning";
+
   cardCol.innerHTML = `
     <div class="card h-100 border-0 shadow-sm rounded-3">
       <div class="card-header p-2 d-flex flex-column justify-content-between gap-2">
@@ -176,17 +194,47 @@ function renderOrder(docSnap) {
 async function renderOrders() {
   try {
     const container = document.querySelector("#orders-container");
-    await renderQueryResult(collection(db, "orders"), container, renderOrder);
+    if (container) {
+      await renderQueryResult(collection(db, "orders"), container, renderOrder);
+    }
   } catch (error) {
     showToast("Failed to load orders: ", "danger", error);
   }
 }
 
+// Global initialization logic
 document.addEventListener("DOMContentLoaded", async () => {
-  const { isAdmin_, user } = await isAdmin(true);
-  if (!isAdmin_) window.location.href = "../index.html";
-  await renderItems();
-  await renderOrders();
+  // Fire static CSS initialization
   createCustomCss();
+
+  // Attach global delete action listener
   deleteDocEveLis();
+
+  // Fetch current user safely
+  const user = await getCurrentUser().catch((err) => {
+    console.error("Auth fetch failed:", err);
+    return null;
+  });
+
+  if (!user) {
+    window.location.href = "../index.html";
+    return;
+  }
+
+  // Check admin privileges safely
+  const isAdmin_ = await isAdmin(user).catch((err) => {
+    console.error("Admin verification failed:", err);
+    return false;
+  });
+
+  if (!isAdmin_) {
+    window.location.href = "../index.html";
+    return;
+  }
+
+  // Update navbar layout
+  updateNavbar(isAdmin_, user);
+
+  // Fetch and render data collections concurrently
+  await Promise.all([renderItems(), renderOrders()]);
 });

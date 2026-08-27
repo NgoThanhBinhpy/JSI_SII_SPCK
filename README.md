@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a small browser-based book store. It uses plain HTML, JavaScript ES modules, Bootstrap, Firebase Authentication, Cloud Firestore, and the FreeAPI public books API.
+This project is a small personal browser-based book store. It uses plain HTML, JavaScript ES modules, Bootstrap, Firebase Authentication, Cloud Firestore, and the FreeAPI public books API. It is intentionally kept simple and does not use Vite, a build system, a project CLI, or environment files.
 
 Visitors can browse books, inspect metadata, select a theme, and open book previews. Authenticated users can sign in, register, use Google or GitHub authentication, add books to a session-based cart, place orders, and view or cancel their own orders. Administrators can manage product and order documents through an admin panel.
 
@@ -55,17 +55,21 @@ All pages use Bootstrap for layout, components, modals, dropdowns, alerts, and t
 
 ## JavaScript Modules
 
+### `static/js/config.js`
+
+Stores the Firebase project configuration as `firebaseConfig`. This is imported by `firebase-config.js` and kept separate from the initialization logic for clarity.
+
 ### `static/js/firebase-config.js`
 
-Initializes the Firebase application from the project configuration and exports `auth`, `db`, `storage`, and `analytics`. It also re-exports the Firebase Auth and Firestore functions used by the rest of the application, including document operations, queries, batches, provider authentication, linking, and re-authentication.
+Imports the Firebase configuration from `config.js`, initializes the Firebase application, and exports `auth`, `db`, `storage`, and `analytics`. It also re-exports the Firebase Auth and Firestore functions used by the rest of the application, including document operations, queries, batches, provider authentication, linking, re-authentication, email verification, password updates, and user deletion.
 
 ### `static/js/index.js`
 
-Adds the theme selector, checks whether the visitor is an administrator, creates the shared navigation bar, loads the `products` collection, and renders product cards. Product cards support metadata previews, raw JSON inspection, adding to the cart, and immediate ordering.
+Adds the theme selector, checks whether the visitor is an administrator, updates the shared navigation bar, loads the `products` collection, and renders product cards. Product cards support metadata previews, raw JSON inspection, adding to the cart, and immediate ordering.
 
 ### `static/js/auth.js`
 
-Reads the email and password fields, validates that both are present, and delegates email login and registration to `utils.js`. It also maps the Google and GitHub buttons to provider sign-in. The local `redirectAfterDelay` function exists in this module, while the shared login functions currently call a similarly named function that is not exported from `utils.js`.
+Reads the email and password fields, validates that both are present, and delegates email login and registration to shared utility functions. It also maps the Google and GitHub buttons to provider sign-in.
 
 ### `static/js/cart.js`
 
@@ -141,13 +145,21 @@ Attaches a JSON editor to the `[data-tool="edit-json"]` control in `parentEl`. I
 
 Returns a Promise that resolves with the current Firebase user or `null`. It subscribes to `onAuthStateChanged()` and immediately unsubscribes after the first callback, so callers receive a one-time authentication-state result rather than a long-lived listener.
 
-### `isAdmin(getUser = false)`
+### `getUserRole(user)`
 
-Loads the current user and then reads `users/{uid}`. It checks whether `roleId` equals `admin`. By default it returns a boolean. When `getUser` is true it returns `{ isAdmin_, user }`, allowing callers to use both the authorization result and the Firebase user.
+Reads the Firestore user document for the given Firebase user and returns their `roleId` field. Returns `null` if the user document does not exist.
 
-### `createNavbar(isAdmin_, user)`
+### `isAdmin(user = null)`
 
-Builds and prepends a responsive Bootstrap navigation bar. It always provides Home; administrators also receive an Admin Panel link. Authenticated users receive Log Out, My Orders, and Cart links, including the current cart length from `sessionStorage`. Signed-in users get a logout listener that signs out and clears the session cart.
+When `user` is provided, checks whether that user's `roleId` equals `admin` by reading `users/{uid}`. Returns `true` or `false`. When `user` is `null`, loads the current user first and then checks the role.
+
+### `getRelativePath(pageName)`
+
+Returns the relative path from the `pages/` subdirectory to another page or the index. Used by `updateNavbar()` to generate correct navigation links from any page.
+
+### `updateNavbar(isAdmin_, user)`
+
+Builds a responsive Bootstrap navigation bar, updating the existing navbar element (`#navBar`). It always provides Home; administrators also receive an Admin Panel link. Authenticated users receive Log Out, My Orders, and Cart links, including the current cart length from `sessionStorage`. Signed-in users get a logout listener that signs out and clears the session cart.
 
 ### `createOrder(product, user, quantity = 1)`
 
@@ -159,9 +171,9 @@ The caller must provide a valid signed-in user and a product with a usable `comp
 
 Reads the session cart, prevents duplicate product IDs, appends the complete book object, and writes the result back to `sessionStorage.CART_KEY`. It displays feedback and optionally updates a supplied cart badge with the new item count.
 
-### `removeFromCart(bookData)`
+### `removeFromCart(id)`
 
-Finds a cart item by ID, removes it, and persists the updated array. It displays success or warning feedback. With the current condition, an item at array index `0` is treated as not found; callers should account for this existing edge case if removal behavior is corrected later.
+Finds and removes a cart item by product ID, then persists the updated array to `sessionStorage.CART_KEY`. It displays success or warning feedback.
 
 ### `calculateBookPrice(book)`
 
@@ -217,12 +229,11 @@ python -m http.server 8000
 
 Then open `http://localhost:8000/`.
 
-Before using the application, configure Firebase Authentication providers and Firestore for the Firebase project referenced by `firebase-config.js`, and publish the rules from `static/js/firestore.rules`.
+Before using the application, configure Firebase Authentication providers and Firestore for the Firebase project referenced by `firebase-config.js`. The Firebase client configuration is stored directly in that module because this project is a personal static site and does not use `.env` files or a build step. Apply the rules from `static/js/firestore.rules` through whichever Firebase workflow you already use.
 
 ## Current Maintenance Notes
 
 - The account page is wired through `static/js/user.js`; its controls require a signed-in Firebase user.
-- Some shared authentication functions reference Firebase helpers that are not included in the `utils.js` import list, and the redirect helper used by `login()` and `register()` is not defined in that module. Authentication should be tested before treating those flows as production-ready.
-- The cart page's empty-cart check and remove-button selector contain existing edge cases.
-- Several pages use relative links that should be tested when hosted from a subdirectory.
-- The Firebase configuration is client-visible by design for a browser Firebase app, but production deployments still need correct provider settings, Firestore rules, and Firebase App Check or other appropriate protections.
+- The Firebase configuration is stored in `static/js/config.js` and imported by `firebase-config.js`. This keeps the configuration separate from initialization logic.
+- Navigation is updated dynamically by calling `updateNavbar()` from each page script. Page paths are resolved using `getRelativePath()`.
+- The Firebase configuration is client-visible by design for this browser Firebase app. Since this is a personal project, no production deployment or `.env` setup is assumed.

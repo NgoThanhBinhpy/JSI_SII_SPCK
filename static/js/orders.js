@@ -6,6 +6,7 @@ import {
   viewRawJsonEveLis,
   renderQueryResult,
   createSetThemeEl,
+  updateNavbar,
   getCurrentUser,
 } from "./utils.js";
 import { createCustomCss } from "../../new.js";
@@ -157,8 +158,10 @@ function renderOrderCard(orderDoc) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const user = await getCurrentUser();
   createCustomCss();
-  await renderAllOrders(user);
   deleteDocEveLis("cancel");
+  const user = await getCurrentUser();
+  renderAllOrders(user);
+  const isAdmin_ = await isAdmin(user);
+  updateNavbar(isAdmin_, user);
 });

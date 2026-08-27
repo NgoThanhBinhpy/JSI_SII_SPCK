@@ -28,9 +28,33 @@
     />
   </head>
   <body class="bg-body">
+    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">Coffee</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav me-4 mb-2 mb-lg-0 ms-auto gap-4" id="navBar">
+            <li class="nav-item nav-tab">
+              <a class="nav-link active" href="../index.html"
+                ><i class="bi bi-house"></i> Home</a
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
     <div class="container my-4">
       <div class="row g-4">
-        <!-- Sidebar Navigation -->
         <div class="col-md-3">
           <div class="card border-0 shadow-sm">
             <div class="card-body p-2">
@@ -77,32 +101,7 @@
                 <div class="card-header bg-transparent fw-bold">
                   Account Overview
                 </div>
-                <div class="card-body" id="user-info">
-                  <div class="mb-3">
-                    <label class="form-label text-muted small fw-semibold"
-                      >Email Address</label
-                    >
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="infoUserEmail"
-                      readonly
-                      placeholder="user@example.com"
-                    />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label text-muted small fw-semibold"
-                      >User ID</label
-                    >
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="infoUserId"
-                      readonly
-                      placeholder="UID-12345"
-                    />
-                  </div>
-                </div>
+                <div class="card-body" id="user-info"></div>
               </div>
             </div>
 

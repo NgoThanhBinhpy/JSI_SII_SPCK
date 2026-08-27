@@ -273,10 +273,12 @@ export function showModal(
 }
 
 export async function renderQueryResult(docRef, container, renderFunction) {
-  container.innerHTML =
-    `<div class="col"><div class="card h-100 shadow-sm placeholder-glow"> <div class="card-header p-2 d-flex justify-content-between"> <p class="placeholder col-2 my-auto"></p> <p class="placeholder col-2 my-auto"></p> </div> <div class="card-body p-3"> <div class="row g-2 align-items-center"> <div class="col-4"> <div class="ratio ratio-1x1 bg-success rounded placeholder"></div> </div> <div class="col-8"> <h6 class="card-title placeholder col-11"></h6> <p class="placeholder col-8"></p> <p class="placeholder col-6"></p> <p class="placeholder col-4"></p> </div> </div> </div> <div class="card-footer bg-transparent border-top-0 pt-0 pb-3 px-3 d-flex gap-2"> <span class="btn btn-primary disabled placeholder col-7"></span> <span class="btn btn-outline-secondary disabled placeholder col-5"></span> </div> </div></div>`.repeat(
-      6,
-    );
+  container.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center py-5 position-relative" style="flex: 0 0 100%; width: 100%;">
+  <div class="spinner-border text-primary position-relative z-1 mb-3" style="width: 3.5rem; height: 3.5rem;" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+
+</div>`;
   const querySnapshot = await getDocs(docRef);
   const sortedDocs = querySnapshot.docs.sort((a, b) =>
     a.id.localeCompare(b.id, undefined, { numeric: true }),
@@ -448,65 +450,64 @@ export async function getCurrentUser() {
   });
 }
 
+export async function getUserRole(user) {
+  const userData = await getDoc(doc(db, "users", user.uid));
+  console.log(userData, userData.data());
+  if (userData.exists()) {
+    return userData.data()?.roleId;
+  }
+  return null;
+}
+
 /**
  * @param {boolean} getUser
  * @returns
  */
-export async function isAdmin(getUser = false) {
+export async function isAdmin(user = null) {
   console.log("isAdmin called");
-  const user = await getCurrentUser();
+  if (!user) user = await getCurrentUser();
   if (!user) {
-    if (getUser) return { isAdmin_: false, user: null };
     return false;
   }
+  const roleId = await getUserRole(user);
+  const isAdmin_ = roleId === "admin";
+  return isAdmin_;
+}
 
-  const userData = await getDoc(doc(db, "users", user.uid));
-  console.log(userData, userData.data());
-
-  if (userData.exists()) {
-    const isAdmin_ = userData.data().roleId === "admin";
-    if (getUser) return { isAdmin_, user };
-    return isAdmin_;
+function getRelativePath(pageName) {
+  const splitedPathName = window.location.pathname.split("/");
+  const isIndex =
+    splitedPathName.every((s) => !s) || splitedPathName.includes("index.html");
+  if (pageName.includes("index.html")) {
+    return isIndex ? "#" : "../index.html";
   }
-  if (getUser) return { isAdmin_: false, user: user };
-  return false;
+  return isIndex ? `./pages/${pageName}` : `./${pageName}`;
 }
 
 /**
  * @param {boolean} isAdmin_
  * @param {*} user
  */
-export async function createNavbar(isAdmin_, user) {
-  const navbar = document.createElement("nav");
-  navbar.className = `navbar navbar-expand-lg bg-body-tertiary`;
-  navbar.innerHTML = `<div class="container-fluid">
-        <a class="navbar-brand" href="#">Coffee</a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-4 mb-2 mb-lg-0 ms-auto gap-4">
-            <li class="nav-item nav-tab">
-              <a class="nav-link active" href="#"><i class="bi bi-house"></i> Home</a>
-            </li>
-            ${
-              isAdmin_
-                ? `<li class="nav-item nav-tab">
-              <a class="nav-link" href="./pages/admin.html"><i class="bi bi-gear-wide-connected"></i> Admin Panel</a>
-            </li>`
-                : ""
-            }
-            ${
-              user
-                ? `
+export function updateNavbar(isAdmin_, user) {
+  const navbar = document.getElementById("navBar");
+  console.log(isAdmin_);
+  navbar.innerHTML = `
+  <li class="nav-item nav-tab">
+    <a class="nav-link active" href="${getRelativePath("index.html")}"
+      ><i class="bi bi-house"></i> Home</a
+    >
+  </li>
+  ${
+    isAdmin_
+      ? `
+    <li class="nav-item nav-tab">
+      <a class="nav-link" href="${getRelativePath("admin.html")}"><i class="bi bi-gear-wide-connected"></i> Admin Panel</a>
+    </li>`
+      : ""
+  }
+  ${
+    user
+      ? `
             <li class="nav-item dropdown ms-auto" id="userNavDropdown">
               <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-person-circle fs-5"></i>
@@ -516,7 +517,7 @@ export async function createNavbar(isAdmin_, user) {
               <ul class="dropdown-menu dropdown-menu-end shadow-sm">
 
                 <li>
-                  <a class="dropdown-item d-flex align-items-center gap-2" href="./pages/user.html">
+                  <a class="dropdown-item d-flex align-items-center gap-2" href="${getRelativePath("user.html")}">
                     <i class="bi bi-info-circle"></i> Account Info
                   </a>
                 </li>
@@ -533,29 +534,27 @@ export async function createNavbar(isAdmin_, user) {
             </li>
 
             <li class="nav-item nav-tab">
-              <a class="nav-link" href="./pages/orders.html"><i class="bi bi-bag-check"></i> My Orders</a>
+              <a class="nav-link" href="${getRelativePath("orders.html")}"><i class="bi bi-bag-check"></i> My Orders</a>
             </li>
             <li class="nav-item nav-tab">
-              <a class="nav-link position-relative me-3" href="./pages/cart.html">
+              <a class="nav-link position-relative me-3" href="${getRelativePath("cart.html")}">
                 <i class="bi bi-cart3 fs-5"></i> Cart
                 <span class="text-center badge rounded-pill bg-danger" id="cart-badge">
                   ${JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]").length}
                 </span>
               </a>
             </li>`
-                : `<li class="nav-item nav-tab">
-              <a class="nav-link" href="./pages/auth.html"><i class="bi bi-box-arrow-in-right me-1"></i> Log In</a>
+      : `<li class="nav-item nav-tab">
+              <a class="nav-link" href="${getRelativePath("auth.html")}"><i class="bi bi-box-arrow-in-right me-1"></i> Log In</a>
             </li>`
-            }
-          </ul>
-        </div>
-      </div>`;
+  }
+  `;
   if (user)
     navbar.querySelector("#log-out-btn").addEventListener("click", async () => {
       await signOut(auth);
       sessionStorage.removeItem("CART_KEY");
+      updateNavbar(isAdmin_, user);
     });
-  document.body.prepend(navbar);
 }
 
 /**
@@ -629,12 +628,9 @@ export function addToCart(bookData, cardQtyBadge = null) {
   }
 }
 
-/**
- * @param {object} bookData
- */
-export function removeFromCart(bookData) {
+export function removeFromCart(id) {
   var cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
-  const bookId = cartArr.findIndex((c) => c.id === bookData.id);
+  const bookId = cartArr.findIndex((c) => c.id === id);
   if (!bookId) {
     showToast("Cant found book index in cart", "warning");
     return;
@@ -712,10 +708,10 @@ export function setBootstrapTheme(theme) {
       ? "dark"
       : "light";
     document.documentElement.setAttribute("data-bs-theme", systemTheme);
-    localStorage.setItem("color-scheme-perferance", systemTheme);
+    localStorage.setItem("color-scheme-preference", systemTheme);
   } else {
     document.documentElement.setAttribute("data-bs-theme", theme);
-    localStorage.setItem("color-scheme-perferance", theme);
+    localStorage.setItem("color-scheme-preference", theme);
   }
 }
 
