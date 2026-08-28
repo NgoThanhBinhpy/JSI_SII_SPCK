@@ -6,7 +6,7 @@ This project is a small personal browser-based book store. It uses plain HTML, J
 
 Visitors can browse books, inspect metadata, select a theme, and open book previews. Authenticated users can sign in, register, use Google or GitHub authentication, add books to a session-based cart, place orders, and view or cancel their own orders. Administrators can manage product and order documents through an admin panel.
 
-The application is a multi-page website rather than a single-page application. Each HTML page loads the JavaScript module responsible for that page, while `static/js/utils.js` provides shared behavior.
+The application is a multi-page website rather than a single-page application. Each HTML page loads the JavaScript module responsible for that page. Shared behavior is organized under `static/js/utils/`, while `static/js/utils.js` re-exports those helpers through one convenient entry point.
 
 ## Pages
 
@@ -23,7 +23,7 @@ All pages use Bootstrap for layout, components, modals, dropdowns, alerts, and t
 
 ## Application Flow
 
-1. A page imports `firebase-config.js`, which initializes Firebase and exports the Authentication, Firestore, Storage, and Analytics clients plus Firebase helper functions.
+1. A page imports `firebase-config.js`, which imports the project settings from `config.js`, initializes Firebase, and exports the Authentication, Firestore, Storage, and Analytics clients plus Firebase helper functions.
 2. Page scripts call `createSetThemeEl()` to add the fixed theme selector and apply the saved theme.
 3. Pages that need login state call `getCurrentUser()` or `isAdmin()`.
 4. The home page calls `renderQueryResult()` for the `products` collection and uses `renderBookCard()` to create each card.
@@ -44,7 +44,7 @@ All pages use Bootstrap for layout, components, modals, dropdowns, alerts, and t
 ### Browser storage
 
 - `sessionStorage.CART_KEY` contains the current browser session's cart as a JSON array.
-- `localStorage.color-scheme-perferance` stores the selected Bootstrap theme. The spelling is part of the current storage key and must remain consistent with the code unless migrated.
+- `localStorage.color-scheme-preference` stores the selected Bootstrap theme.
 
 ### External services
 
@@ -57,7 +57,7 @@ All pages use Bootstrap for layout, components, modals, dropdowns, alerts, and t
 
 ### `static/js/config.js`
 
-Stores the Firebase project configuration as `firebaseConfig`. This is imported by `firebase-config.js` and kept separate from the initialization logic for clarity.
+Stores the Firebase project configuration as `firebaseConfig`. This is the local configuration module used by `firebase-config.js`.
 
 ### `static/js/firebase-config.js`
 
@@ -91,13 +91,29 @@ Loads the current Firebase user, renders the account email and UID, shows the ac
 
 Exports `createTreeViewer()` and `createCustomCss()`. These utilities provide a small expandable tree viewer for raw objects and inject the dark console-tree styles used by raw JSON modals.
 
-## `utils.js` Function Reference
+## Shared Utility Modules
 
-`static/js/utils.js` is the shared application service layer. It combines Firebase operations with DOM and Bootstrap UI helpers. The following describes every exported value and function currently present in the file.
+`static/js/utils.js` is a barrel module. It re-exports every public helper from the three focused modules below, so page scripts can continue importing shared functions from `./utils.js`.
+
+### `static/js/utils/auth-utils.js`
+
+Contains Firebase Authentication helpers, including account creation, email and provider sign-in, authentication-state lookup, provider linking, sensitive-action re-authentication, account deletion, and password changes.
+
+### `static/js/utils/ui-utils.js`
+
+Contains browser UI helpers for Bootstrap toasts, modals, raw JSON viewing, relative navigation paths, the shared navbar, pricing calculation, and theme selection.
+
+### `static/js/utils/db-utils.js`
+
+Contains Firestore and data helpers for query rendering, admin document deletion and JSON editing, user-role lookup, administrator checks, order creation, cart storage, and importing books from FreeAPI.
+
+The function reference below is grouped by the module that owns each function.
+
+## Authentication Utility Functions
 
 ### `AUTH_ERROR_MESSAGES`
 
-An object mapping Firebase Auth error message keys to friendlier messages. It covers recent-login requirements, credential mismatches, incorrect passwords, rate limiting, disabled or missing accounts, duplicate email addresses, invalid credentials or email, and weak passwords. `showAuthErrorToast()` uses this map.
+An object in `auth-utils.js` mapping Firebase Auth error message keys to friendlier messages. It covers recent-login requirements, credential mismatches, incorrect passwords, rate limiting, disabled or missing accounts, duplicate email addresses, invalid credentials or email, and weak passwords. `showAuthErrorToast()` uses this map.
 
 ### `showAuthErrorToast(err)`
 
@@ -117,6 +133,8 @@ Creates an OAuth provider instance from the supplied provider class, signs in wi
 
 If Firebase reports that the email already belongs to another provider, the function obtains the pending credential. It links immediately when a current user is available; otherwise it opens `openLinkAccountModal()` so the user can verify the existing account before linking.
 
+## UI Utility Functions
+
 ### `showToast(message, type = "danger", error, delay = 3000)`
 
 Creates or reuses a fixed Bootstrap toast container, builds a toast using the requested Bootstrap contextual type, and displays it for the requested delay. Danger toasts can append `error.message`. Toast elements remove themselves after hiding. The function also logs informational messages, warnings, or errors to the console.
@@ -125,33 +143,9 @@ Creates or reuses a fixed Bootstrap toast container, builds a toast using the re
 
 Creates, displays, and returns a Bootstrap modal. When `htmlElement` is false, `modalBody` is inserted as an HTML string. When it is true, `modalBody` must be an `HTMLElement`, which is appended to the modal body. The optional `externalClasses` value is added to the dialog. The modal is removed from the document after it is hidden. The return value is `{ ModalEl, modal }`.
 
-### `renderQueryResult(docRef, container, renderFunction)`
-
-Displays six Bootstrap placeholder cards while awaiting `getDocs(docRef)`. It sorts the returned documents by ID using numeric-aware comparison, clears the placeholders, calls `renderFunction(docSnap)` for each document, and appends each returned element. It returns the sorted document snapshots.
-
 ### `viewRawJsonEveLis(parentEl, obj, title = "Raw JSON")`
 
 Attaches a click handler to the `[data-tool="view-raw-json"]` element inside `parentEl`. Clicking it creates an expandable tree with `createTreeViewer(obj)` and opens that tree in a modal titled with `title`. The function name contains the existing `EveLis` spelling and is part of the current API.
-
-### `deleteDocEveLis(delOrCancel = "delete")`
-
-Registers one delegated click listener on `document.body` for `[data-tool="delete"]`. It opens a confirmation modal, then deletes the Firestore document identified by the clicked element's `data-collection` and `data-uid` attributes. On success it shows a toast and removes the matching element with `data-parent-id`; on failure it shows an error toast. The confirmation wording can be changed, for example to `cancel` for order cancellation.
-
-### `editJsonEveLis(parentEl, docSnap, renderFunc)`
-
-Attaches a JSON editor to the `[data-tool="edit-json"]` control in `parentEl`. It removes `createdAt` from the local data before displaying it, validates JSON on every text-area input, and disables saving while invalid. Saving merges the parsed JSON plus a new `updatedAt` timestamp into the Firestore document. After success it hides the modal and replaces the original card using `renderFunc()` and a lightweight local snapshot.
-
-### `getCurrentUser()`
-
-Returns a Promise that resolves with the current Firebase user or `null`. It subscribes to `onAuthStateChanged()` and immediately unsubscribes after the first callback, so callers receive a one-time authentication-state result rather than a long-lived listener.
-
-### `getUserRole(user)`
-
-Reads the Firestore user document for the given Firebase user and returns their `roleId` field. Returns `null` if the user document does not exist.
-
-### `isAdmin(user = null)`
-
-When `user` is provided, checks whether that user's `roleId` equals `admin` by reading `users/{uid}`. Returns `true` or `false`. When `user` is `null`, loads the current user first and then checks the role.
 
 ### `getRelativePath(pageName)`
 
@@ -161,27 +155,9 @@ Returns the relative path from the `pages/` subdirectory to another page or the 
 
 Builds a responsive Bootstrap navigation bar, updating the existing navbar element (`#navBar`). It always provides Home; administrators also receive an Admin Panel link. Authenticated users receive Log Out, My Orders, and Cart links, including the current cart length from `sessionStorage`. Signed-in users get a logout listener that signs out and clears the session cart.
 
-### `createOrder(product, user, quantity = 1)`
-
-Creates a new document reference in `orders`, derives book title, price, information link, and cover URL, and stores an order with customer, item, quantity, pricing, processing status, paid status, and server timestamps. Shipping is fixed at `3.0`. The total is calculated as unit price times quantity plus shipping. The function displays success or error feedback and returns the generated order ID.
-
-The caller must provide a valid signed-in user and a product with a usable `computedPrice`; otherwise the generated order can contain invalid customer or pricing data.
-
-### `addToCart(bookData, cardQtyBadge = null)`
-
-Reads the session cart, prevents duplicate product IDs, appends the complete book object, and writes the result back to `sessionStorage.CART_KEY`. It displays feedback and optionally updates a supplied cart badge with the new item count.
-
-### `removeFromCart(id)`
-
-Finds and removes a cart item by product ID, then persists the updated array to `sessionStorage.CART_KEY`. It displays success or warning feedback.
-
 ### `calculateBookPrice(book)`
 
 Returns a USD price object. Books with a positive page count use `5 + pageCount * 0.05`. Books without a usable page count use `10 + (numericId % 30) + 0.99`, with `10` as the fallback numeric ID. The amount is rounded to two decimal places and returned as `{ amount, currency: "USD" }`.
-
-### `addItems(count = 10)`
-
-Fetches up to `count` books from FreeAPI, validates the HTTP response, and reads `payload.data.data`. It calculates and attaches a price to every book, then writes all products to Firestore in one batch using the book ID as the document ID and adds a `createdAt` server timestamp. It reports empty responses, HTTP failures, and unexpected errors through toasts.
 
 ### `setBootstrapTheme(theme)`
 
@@ -191,25 +167,43 @@ Applies a Bootstrap `data-bs-theme` value to the document root and stores the ch
 
 Creates a fixed bottom-left dropup containing Light, Dark, and Auto options. It loads the saved theme, applies it through `setBootstrapTheme()`, updates the button icon, and listens for future theme selections. The selector is appended to `document.body`.
 
-### `openLinkAccountModal(email, pendingCred, targetProviderId)`
+## Database Utility Functions
 
-Builds the account-linking modal used when a provider credential conflicts with an existing Firebase account. It hides the provider being linked, offers password verification or another OAuth provider, and calls `linkWithCredential()` after successful verification. It shows success or failure toasts and closes the modal after linking.
+### `renderQueryResult(docRef, container, renderFunction)`
 
-### `OpenReauthModal(user)`
+Displays a Bootstrap loading spinner while awaiting `getDocs(docRef)`. It sorts the returned documents by ID using numeric-aware comparison, clears the loading state, calls `renderFunction(docSnap)` for each document, and appends each returned element. It returns the sorted document snapshots.
 
-Builds a modal for sensitive-action re-authentication. It supports email/password credentials through `EmailAuthProvider` and Google or GitHub popup re-authentication. Successful verification produces a success toast and closes the modal. The function returns a Promise that resolves to `true` when authentication succeeds or `false` when the modal closes without successful authentication.
+### `deleteDocEveLis(delOrCancel = "delete")`
 
-### `deleteUserAndDoc(user)`
+Registers one delegated click listener on `document.body` for `[data-tool="delete"]`. It opens a confirmation modal, then deletes the Firestore document identified by the clicked element's `data-collection` and `data-uid` attributes. On success it shows a toast and removes the matching element with `data-parent-id`.
 
-Protects account deletion with `OpenReauthModal()`. After successful re-authentication, it deletes the user's `users/{uid}` Firestore document, deletes the Firebase Authentication user, and redirects the user. Errors are reported with a danger toast.
+### `editJsonEveLis(parentEl, docSnap, renderFunc)`
 
-### `changeUserPassword(user)`
+Attaches a JSON editor to the `[data-tool="edit-json"]` control in `parentEl`. It removes `createdAt` from the local data before displaying it, validates JSON on every text-area input, and disables saving while invalid. Saving merges the parsed JSON plus a new `updatedAt` timestamp into the Firestore document. After success it hides the modal and replaces the original card using `renderFunc()`.
 
-Protects password changes with `OpenReauthModal()`. After successful re-authentication, it opens a second modal containing new-password and confirmation fields. When the values match, it updates the Firebase password, closes the modal, and displays a success toast. Validation and Firebase failures are displayed as toasts.
+### `getUserRole(user)`
 
-### `deleteUser()`
+Reads `users/{uid}` from Firestore and returns its `roleId`. Returns `null` if the document does not exist.
 
-The Firebase Authentication deletion helper used by `deleteUserAndDoc()`. It is imported by the shared utility module from the Firebase configuration layer rather than being a standalone account-page action.
+### `isAdmin(user = null)`
+
+When `user` is provided, checks whether that user's `roleId` equals `admin`. When `user` is `null`, loads the current user first. It returns a boolean.
+
+### `createOrder(product, user, quantity = 1)`
+
+Creates a new document in `orders`, derives book and price information, and stores customer, item, quantity, pricing, status, payment status, and server timestamps. Shipping is fixed at `3.0`, and the total is unit price times quantity plus shipping. It returns the generated order ID.
+
+### `addToCart(bookData, cardQtyBadge = null)`
+
+Reads the session cart, prevents duplicate product IDs, appends the complete book object, and writes the result back to `sessionStorage.CART_KEY`. It displays feedback and optionally updates a supplied cart badge.
+
+### `removeFromCart(id)`
+
+Finds and removes a cart item by product ID, then persists the updated array to `sessionStorage.CART_KEY`. It displays success or warning feedback.
+
+### `addItems(count = 10)`
+
+Fetches up to `count` books from FreeAPI, calculates a price for each book with `calculateBookPrice()`, and writes the products to Firestore in one batch. It reports empty responses and request or write failures through toasts.
 
 ## Firestore Security Model
 
@@ -229,7 +223,7 @@ python -m http.server 8000
 
 Then open `http://localhost:8000/`.
 
-Before using the application, configure Firebase Authentication providers and Firestore for the Firebase project referenced by `firebase-config.js`. The Firebase client configuration is stored directly in that module because this project is a personal static site and does not use `.env` files or a build step. Apply the rules from `static/js/firestore.rules` through whichever Firebase workflow you already use.
+Before using the application, configure Firebase Authentication providers and Firestore for the Firebase project referenced by `config.js`. The Firebase client configuration is stored directly in that module because this project is a personal static site and does not use `.env` files or a build step. Apply the rules from `static/js/firestore.rules` through whichever Firebase workflow you already use.
 
 ## Current Maintenance Notes
 

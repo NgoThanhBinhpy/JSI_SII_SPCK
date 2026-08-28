@@ -8,11 +8,11 @@ import {
   createSetThemeEl,
   updateNavbar,
   getCurrentUser,
+  addItems,
 } from "./utils.js";
 import { db, collection } from "./firebase-config.js";
 import { createCustomCss } from "../../new.js";
 
-// Initialize UI theme elements
 createSetThemeEl();
 
 function renderItem(docSnap) {
@@ -22,7 +22,6 @@ function renderItem(docSnap) {
   cardCol.className = "col-12 col-md-6 col-lg-4";
   cardCol.dataset.parentId = docSnapId;
 
-  // Safe navigation fallbacks
   const volumeInfo = data.volumeInfo || {};
   const title = volumeInfo.title || "Untitled";
   const subtitle = volumeInfo.subtitle || "";
@@ -122,7 +121,7 @@ function renderOrder(docSnap) {
 
   const totalVal =
     data.pricing?.totalAmount != null && data.pricing?.unitPrice?.currency
-      ? `${data.pricing.totalAmount} ${data.pricing.unitPrice.currency}`
+      ? `${Number(data.pricing.totalAmount).toFixed(2)} ${data.pricing.unitPrice.currency}`
       : "N/A";
 
   const itemTitle = data.item?.title || "Untitled Product";
@@ -202,39 +201,21 @@ async function renderOrders() {
   }
 }
 
-// Global initialization logic
 document.addEventListener("DOMContentLoaded", async () => {
-  // Fire static CSS initialization
   createCustomCss();
-
-  // Attach global delete action listener
   deleteDocEveLis();
-
-  // Fetch current user safely
-  const user = await getCurrentUser().catch((err) => {
-    console.error("Auth fetch failed:", err);
-    return null;
-  });
-
-  if (!user) {
-    window.location.href = "../index.html";
-    return;
-  }
-
-  // Check admin privileges safely
-  const isAdmin_ = await isAdmin(user).catch((err) => {
-    console.error("Admin verification failed:", err);
-    return false;
-  });
-
+  document
+    .getElementById("add-books-btn")
+    .addEventListener("click", async () => {
+      const qty = Number(document.getElementById("add-books-quantity").value);
+      await addItems(qty);
+    });
+  const user = await getCurrentUser();
+  const isAdmin_ = await isAdmin(user);
   if (!isAdmin_) {
     window.location.href = "../index.html";
     return;
   }
-
-  // Update navbar layout
   updateNavbar(isAdmin_, user);
-
-  // Fetch and render data collections concurrently
   await Promise.all([renderItems(), renderOrders()]);
 });
