@@ -8,17 +8,29 @@ import {
   getDoc,
   collection,
   writeBatch,
+  updateDoc,
 } from "../firebase-config.js";
 import { getCurrentUser } from "./auth-utils.js";
-import { calculateBookPrice, showModal, showToast } from "./ui-utils.js";
+import {
+  calculateBookPrice,
+  showModal,
+  showToast,
+  viewRawJson,
+} from "./ui-utils.js";
 
-export async function renderQueryResult(docRef, container, renderFunction) {
+export async function renderQueryResult(
+  docRef,
+  container,
+  renderFunction,
+  args = [],
+) {
   container.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center py-5 position-relative" style="flex: 0 0 100%; width: 100%;">
   <div class="spinner-border text-primary position-relative z-1 mb-3" style="width: 3.5rem; height: 3.5rem;" role="status">
     <span class="visually-hidden">Loading...</span>
   </div>
 
 </div>`;
+  const originalArgs = [...args];
   const querySnapshot = await getDocs(docRef);
   const sortedDocs = querySnapshot.docs.sort((a, b) =>
     a.id.localeCompare(b.id, undefined, { numeric: true }),
@@ -26,7 +38,9 @@ export async function renderQueryResult(docRef, container, renderFunction) {
   console.log(sortedDocs);
   container.innerHTML = "";
   for (const docSnap of sortedDocs) {
-    const cardEl = renderFunction(docSnap);
+    if (originalArgs) args = [docSnap, ...originalArgs];
+    else args = [docSnap];
+    const cardEl = renderFunction(...args);
     container.appendChild(cardEl);
   }
   return sortedDocs;
@@ -74,20 +88,13 @@ export function deleteDocEveLis(delOrCancel = "delete") {
  * @param {HTMLElement} parentEl
  * @param {Function} renderFunc
  */
-export function editJsonEveLis(parentEl, docSnap, renderFunc) {
-  const editBtn = parentEl.querySelector('[data-tool="edit-json"]');
-  if (!editBtn) return;
-
+export function editJson(docSnap, renderFunc, args = [docSnap]) {
+  const editorContainer = document.createElement("div");
   const data = docSnap.data();
-  const id = docSnap.id;
-  editBtn.addEventListener("click", (e) => {
-    e.preventDefault();
+  delete data.createdAt;
+  const jsonString = JSON.stringify(data, null, 2);
 
-    const editorContainer = document.createElement("div");
-    delete data.createdAt;
-    const jsonString = JSON.stringify(data, null, 2);
-
-    editorContainer.innerHTML = `
+  editorContainer.innerHTML = `
       <div class="mb-3">
         <label class="form-label text-muted small fw-bold">Document Payload (JSON Format)</label>
         <textarea 
@@ -103,58 +110,56 @@ export function editJsonEveLis(parentEl, docSnap, renderFunc) {
       </div>
       <div class="d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-warning fw-semibold" id="save-json-btn">
+        <button type="button" class="btn btn-warning fw-semibold" data-uid="${docSnap.id}" id="save-json-btn">
           <i class="bi bi-check-lg me-1"></i>Save Changes
         </button>
       </div>
     `;
 
-    const textarea = editorContainer.querySelector("#json-editor-textarea");
-    const saveBtn = editorContainer.querySelector("#save-json-btn");
-    const errorMsg = editorContainer.querySelector("#json-error-msg");
+  const textarea = editorContainer.querySelector("#json-editor-textarea");
+  const saveBtn = editorContainer.querySelector("#save-json-btn");
+  const errorMsg = editorContainer.querySelector("#json-error-msg");
 
-    textarea.addEventListener("input", () => {
-      try {
-        JSON.parse(textarea.value);
-        textarea.classList.remove("is-invalid");
-        errorMsg.classList.add("d-none");
-        saveBtn.disabled = false;
-      } catch (err) {
-        textarea.classList.add("is-invalid");
-        errorMsg.classList.remove("d-none");
-        saveBtn.disabled = true;
-      }
-    });
+  textarea.addEventListener("input", () => {
+    try {
+      JSON.parse(textarea.value);
+      textarea.classList.remove("is-invalid");
+      errorMsg.classList.add("d-none");
+      saveBtn.disabled = false;
+    } catch (err) {
+      textarea.classList.add("is-invalid");
+      errorMsg.classList.remove("d-none");
+      saveBtn.disabled = true;
+    }
+  });
 
-    const { ModalEl, modal } = showModal(
-      editorContainer,
-      `Edit JSON: ${editBtn.dataset.uid}`,
-      true,
-    );
+  const { ModalEl, modal } = showModal(
+    editorContainer,
+    `Edit JSON: ${saveBtn.dataset.uid}`,
+  );
 
-    saveBtn.addEventListener("click", async () => {
-      try {
-        const updatedData = JSON.parse(textarea.value);
-        await setDoc(
-          doc(db, editBtn.dataset.collection, editBtn.dataset.uid),
-          {
-            ...updatedData,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
+  saveBtn.addEventListener("click", async () => {
+    try {
+      const updatedData = JSON.parse(textarea.value);
+      await setDoc(
+        doc(db, saveBtn.dataset.collection, saveBtn.dataset.uid),
+        {
+          ...updatedData,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
 
-        showToast("Successfully updated document JSON!", "success");
-        modal.hide();
-        const localSnap = {
-          id: id,
-          data: () => updatedData,
-        };
-        parentEl.replaceWith(renderFunc(localSnap));
-      } catch (err) {
-        showToast("Error updating JSON document: ", "danger", err);
-      }
-    });
+      showToast("Successfully updated document JSON!", "success");
+      modal.hide();
+      const localSnap = {
+        id: id,
+        data: () => updatedData,
+      };
+      parentEl.replaceWith(renderFunc(...args));
+    } catch (err) {
+      showToast("Error updating JSON document: ", "danger", err);
+    }
   });
 }
 
@@ -191,13 +196,10 @@ export async function isAdmin(user = null) {
 export async function createOrder(product, user, quantity = 1) {
   try {
     const newOrderRef = doc(collection(db, "orders"));
-    const title = product.volumeInfo?.title || "Untitled",
+    const title = product.title || "Untitled",
       unitPrice = product.computedPrice,
-      infoLink = product.volumeInfo?.infoLink || "",
-      rawImageLink =
-        product.volumeInfo?.imageLinks?.thumbnail ||
-        product.volumeInfo?.imageLinks?.smallThumbnail ||
-        "",
+      infoLink = product.links?.preview || "",
+      rawImageLink = product.coverUrl || "",
       shippingFee = 3.0;
     const coverUrl = rawImageLink
       ? `${rawImageLink}&fife=w800-h1000`
@@ -253,14 +255,9 @@ export function addToCart(bookData, cardQtyBadge = null) {
   }
 }
 
-export function removeFromCart(id) {
+export function removeFromCart(data) {
   var cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
-  const bookId = cartArr.findIndex((c) => c.id === id);
-  if (!bookId) {
-    showToast("Cant found book index in cart", "warning");
-    return;
-  }
-  cartArr.splice(bookId, 1);
+  cartArr.filter((e) => e === data);
   sessionStorage.setItem("CART_KEY", JSON.stringify(cartArr));
   showToast("Successfully remove product from cart", "success");
 }
@@ -290,10 +287,10 @@ export async function addItems(count = 10) {
     const batch = writeBatch(db);
 
     for (const book of books) {
-      book.computedPrice = calculateBookPrice(book);
+      const processedEndpoint = processProductPayload(book);
       const bookRef = doc(db, "products", String(book.id));
       batch.set(bookRef, {
-        ...book,
+        ...processedEndpoint,
         createdAt: serverTimestamp(),
       });
     }
@@ -303,4 +300,281 @@ export async function addItems(count = 10) {
   } catch (error) {
     showToast("Error adding books: ", "danger", error);
   }
+}
+
+export async function updateOrderStatus(orderId, newStatus) {
+  try {
+    const orderRef = doc(db, "orders", orderId);
+    await updateDoc(orderRef, {
+      status: newStatus,
+      updatedAt: serverTimestamp(),
+    });
+    showToast(`Order status updated to "${newStatus}"`, "success");
+  } catch (err) {
+    showToast("Failed to update status", "danger", err);
+  }
+}
+
+export function processProductPayload(rawBook) {
+  const volume = rawBook.volumeInfo || {};
+  const imageLinks = volume.imageLinks || {};
+  const access = rawBook.accessInfo || {};
+  const search = rawBook.searchInfo || {};
+
+  const id = String(rawBook.id || rawBook.numericId || serverTimestamp());
+
+  const authorsArray =
+    volume.authors || (rawBook.author ? [rawBook.author] : []);
+  const authorString =
+    authorsArray.length > 0 ? authorsArray.join(", ") : "Unknown Author";
+
+  const pageCount = Number(volume.pageCount || rawBook.pageCount || 0);
+  const computedAmount = rawBook.computedPrice?.amount
+    ? Number(rawBook.computedPrice.amount)
+    : pageCount > 0
+      ? parseFloat((5 + pageCount * 0.05).toFixed(2))
+      : parseFloat((10 + (parseInt(id, 10) % 30 || 5) + 0.99).toFixed(2));
+
+  return {
+    id,
+    etag: rawBook.etag || null,
+    title: volume.title || rawBook.title || "Untitled Product",
+    subtitle: volume.subtitle || rawBook.subtitle || "",
+    author: authorString,
+    authors: authorsArray,
+    publisher: volume.publisher || "Independent",
+    publishedDate: volume.publishedDate || null,
+    description:
+      volume.description || rawBook.description || search.textSnippet || "",
+    pageCount,
+    language: volume.language || "en",
+    categories: volume.categories || ["General"],
+    isbn: volume.industryIdentifiers || [],
+    rating: {
+      average: Number(volume.averageRating || 0),
+      count: Number(volume.ratingsCount || 0),
+    },
+    coverUrl: (
+      imageLinks.thumbnail ||
+      imageLinks.smallThumbnail ||
+      rawBook.coverUrl ||
+      ""
+    ).replace(/^http:/, "https:"),
+    computedPrice: {
+      amount: computedAmount,
+      currency: rawBook.computedPrice?.currency || "USD",
+    },
+    links: {
+      preview: volume.previewLink || null,
+      info: volume.infoLink || null,
+      webReader: access.webReaderLink || null,
+      buy: rawBook.saleInfo?.buyLink || null,
+    },
+    updatedAt: serverTimestamp(),
+  };
+}
+
+export function renderUniversalProductCard(docRef, mode = "guest") {
+  const data = docRef.data();
+  const id = docRef.id;
+
+  const cardEl = document.createElement("div");
+  cardEl.className = "col";
+  cardEl.innerHTML = `
+      <div class="card h-100 shadow-sm border-0 rounded-3 overflow-hidden">
+        
+        <div class="card-header bg-body-secondary border-0 py-2 px-3 d-flex justify-content-between align-items-center">
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle text-truncate" style="max-width: 120px;">
+            ${data.categories?.[0] || "General"}
+          </span>
+          <span class="fw-bold text-success small">
+            ${data.computedPrice ? `${data.computedPrice.currency} $${data.computedPrice.amount}` : "Free"}
+          </span>
+          <button class="btn btn-sm bg-body border-0 rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+              <li>
+                <a class="dropdown-item" data-tool="view-raw-json" data-action href="#" data-uid="${id}">
+                  <i class="bi bi-code-slash me-2 text-info"></i>View Raw JSON
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" data-tool="view-metadata" data-action href="#" data-uid="${id}">
+                  <i class="bi bi-journal-text me-1"></i>View Metadata
+                </a>
+              </li>
+              ${
+                mode === "admin"
+                  ? `<li>
+                <a class="dropdown-item" data-tool="edit-json" href="#" data-action data-collection="products" data-uid="${id}">
+                  <i class="bi bi-pencil-square me-2 text-warning"></i>Edit Document JSON
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="products" data-uid="${id}">
+                  <i class="bi bi-trash me-2"></i>Delete Product
+                </a>
+              </li>`
+                  : ""
+              }
+            </ul>
+        </div>
+
+        <div class="card-body p-3">
+          <div class="row g-3 align-items-center">
+            <div class="col-4 bg-body-tertiary d-flex align-items-center justify-content-center p-2 rounded">
+              <img 
+                src="${data.coverUrl}&fife=w800-h1000" 
+                class="img-fluid rounded object-fit-contain shadow-sm mh-100" 
+                style="max-height: 140px;"
+                alt="${data.title || "Book Cover"}"
+                loading="lazy"
+              />
+            </div>
+            <div class="col-8">
+              <h6 class="card-title text-truncate fw-bold mb-1" title="${data.title}">${data.title}</h6>
+              ${data.subtitle ? `<p class="text-muted small text-truncate mb-2">${data.subtitle}</p>` : ""}
+
+              <div class="small text-muted">
+                <div class="text-truncate mb-1">
+                  <i class="bi bi-person me-1 text-primary"></i>${data.authors?.join(", ") || "N/A"}
+                </div>
+                <div class="text-truncate">
+                  <i class="bi bi-building me-1 text-primary"></i>${data.publisher || "N/A"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer bg-transparent border-secondary-subtle p-3">
+          ${
+            mode === "guest" || mode === "user"
+              ? `<div class="row g-2 align-items-center">
+            <div class="col-12 col-sm-5">
+              <div class="input-group input-group-sm bg-body-tertiary p-1 rounded-3 border border-secondary-subtle align-items-center gap-2">
+                
+                <label class="ps-2 pe-1 fw-semibold text-body-secondary small mb-0 user-select-none">
+                  Qty
+                </label>
+
+                <input 
+                  type="number"
+                  class="form-control form-control-sm text-center bg-body text-body border-secondary-subtle rounded-2 px-1 qty-selector" 
+                  value="1"
+                  min="1" 
+                  max="99"
+                  ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disable` : ""}
+                  >
+
+              </div>
+            </div>
+
+            <div class="col-6 col-sm-3">
+              <button class="btn btn-sm btn-outline-primary w-100 d-flex align-items-center justify-content-center" data-action data-tool="add-to-cart" title="Add to Cart" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to add products to cart" disable` : ""}>
+                <i class="bi bi-cart-plus fs-6"></i>
+              </button>
+            </div>
+
+            <div class="col-6 col-sm-4">
+              <button class="btn btn-sm btn-primary w-100 fw-semibold" data-action data-tool="place-order" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disable` : ""}>
+                Buy Now
+              </button>
+            </div>
+          </div>
+        </div>`
+              : ""
+          }
+
+      </div>
+  `;
+
+  switch (mode) {
+    case "guest":
+      const tooltipTriggerList = document.querySelectorAll(
+        '[data-bs-toggle="tooltip"]',
+      );
+      const tooltipList = [...tooltipTriggerList].map(
+        (tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl),
+      );
+  }
+  return cardEl;
+}
+
+export function viewMetadata(docRef) {
+  const data = docRef.data();
+  const id = docRef.id;
+  showModal(
+    `<div class="row g-4 align-items-start">
+      <div class="col-md-4 text-center">
+        <img 
+          class="img-fluid rounded-3 shadow-sm object-fit-contain"
+          src="${data.coverUrl ? `${data.coverUrl}&fife=w800-h1000` : ""}"
+          style="max-height: 280px;" 
+          alt="${data.title || "Book Cover"}"
+        >
+      </div>
+      
+      <div class="col-md-8">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-2">
+          ${data.categories?.join(", ") || "General"}
+        </span>
+        <h4 class="fw-bold mb-1 lh-sm">${data.title || "N/A"}</h4>
+        ${data.subtitle ? `<p class="text-muted small mb-2">${data.subtitle}</p>` : ""}
+        
+        <h5 class="text-success fw-bold mb-3">
+          ${data.computedPrice ? `${data.computedPrice.currency} $${data.computedPrice.amount}` : "Free"}
+        </h5>
+
+        <div class="row g-2 small text-secondary border-top py-3 mb-3">
+          <div class="col-6 text-truncate">
+            <i class="bi bi-person me-1 text-primary"></i><strong>Author:</strong> 
+            <span class="text-body">${data.authors?.join(", ") || "N/A"}</span>
+          </div>
+          <div class="col-6 text-truncate">
+            <i class="bi bi-building me-1 text-primary"></i><strong>Publisher:</strong> 
+            <span class="text-body">${data.publisher || "N/A"}</span>
+          </div>
+          <div class="col-6 text-truncate">
+            <i class="bi bi-calendar3 me-1 text-primary"></i><strong>Published:</strong> 
+            <span class="text-body">${data.publishedDate || "N/A"}</span>
+          </div>
+          <div class="col-6 text-truncate">
+            <i class="bi bi-book me-1 text-primary"></i><strong>Pages:</strong> 
+            <span class="text-body">${data.pageCount || "N/A"}</span>
+          </div>
+          <div class="col-6 text-truncate">
+            <i class="bi bi-translate me-1 text-primary"></i><strong>Language:</strong> 
+            <span class="text-body">${(data.language || "N/A").toUpperCase()}</span>
+          </div>
+          <div class="col-6 text-truncate">
+            <i class="bi bi-hash me-1 text-primary"></i><strong>ID:</strong> 
+            <span class="font-monospace text-body">${id}</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="mt-2">
+      <div>
+        <h6 class="fw-bold mb-1 text-body-emphasis"><i class="bi bi-card-text me-1 text-primary"></i> Description</h6>
+        <p class="text-body-secondary small lh-base mb-0 overflow-y-auto" style="max-height: 120px;">
+          ${data.description || "No description available"}
+        </p>
+      </div>
+    </div>`,
+    data.title || "Book Details",
+    `<div class="mt-4 d-flex gap-2 w-100">
+      ${
+        data.links.preview
+          ? `<a class="btn btn-sm btn-outline-secondary flex-grow-1" href="${data.links.preview}" target="_blank" rel="noopener">
+        <i class="bi bi-box-arrow-up-right me-1"></i> Google Books Preview
+      </a>`
+          : ""
+      }
+    </div>`,
+  );
 }

@@ -1,111 +1,65 @@
 import {
   showToast,
   isAdmin,
-  viewRawJsonEveLis,
+  viewRawJson,
   deleteDocEveLis,
-  editJsonEveLis,
+  editJson,
   renderQueryResult,
   createSetThemeEl,
   updateNavbar,
   getCurrentUser,
   addItems,
+  updateOrderStatus,
+  showModal,
+  renderUniversalProductCard,
+  viewMetadata,
+  setFieldFeedback,
 } from "./utils.js";
-import { db, collection } from "./firebase-config.js";
+import { db, collection, setDoc } from "./firebase-config.js";
 import { createCustomCss } from "../../new.js";
 
 createSetThemeEl();
 
-function renderItem(docSnap) {
-  const data = docSnap.data();
-  const docSnapId = docSnap.id;
-  const cardCol = document.createElement("div");
-  cardCol.className = "col-12 col-md-6 col-lg-4";
-  cardCol.dataset.parentId = docSnapId;
-
-  const volumeInfo = data.volumeInfo || {};
-  const title = volumeInfo.title || "Untitled";
-  const subtitle = volumeInfo.subtitle || "";
-  const authors = volumeInfo.authors?.join(", ") || "Unknown Author";
-  const publisher = volumeInfo.publisher || "Unknown Publisher";
-  const publishedDate = volumeInfo.publishedDate?.replace(/-/g, "/") || "N/A";
-  const categories = volumeInfo.categories?.join(", ") || "General";
-
-  const price = data.computedPrice
-    ? `${data.computedPrice.amount} ${data.computedPrice.currency}`
-    : "Free";
-
-  const rawImageLink =
-    volumeInfo.imageLinks?.thumbnail ||
-    volumeInfo.imageLinks?.smallThumbnail ||
-    "";
-  const coverUrl = rawImageLink
-    ? `${rawImageLink}&fife=w800-h1000`
-    : `https://books.google.com/books/publisher/content/images/frontcover/${docSnapId}?fife=w800-h1000&source=gbs_api`;
-
-  cardCol.innerHTML = `
-    <div class="card h-100 border-0 shadow-sm rounded-3">
-      <div class="card-header p-2 d-flex flex-column justify-content-between gap-2">
-        <div class="d-flex align-items-center justify-content-between">
-          <span class="badge bg-secondary-subtle text-secondary font-monospace">#${docSnapId}</span>
-          <div class="dropdown" data-bs-auto-close="outside">
-            <button class="btn btn-sm bg-body border-0 rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-three-dots-vertical"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-              <li>
-                <a class="dropdown-item" data-tool="view-raw-json" href="#">
-                  <i class="bi bi-code-slash me-2 text-info"></i>View Raw JSON
-                </a>
-              </li>
-              <li>
-                <a class="dropdown-item" data-tool="edit-json" href="#" data-collection="products" data-uid="${docSnapId}">
-                  <i class="bi bi-pencil-square me-2 text-warning"></i>Edit Document JSON
-                </a>
-              </li>
-              <li><hr class="dropdown-divider"></li>
-              <li>
-                <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="products" data-uid="${docSnapId}">
-                  <i class="bi bi-trash me-2"></i>Delete Product
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div class="card-body p-2 d-flex flex-column justify-content-between gap-2">
-        <div class="d-flex gap-3 align-items-start">
-          <img src="${coverUrl}" alt="${title}" class="rounded object-fit-cover shadow-sm flex-shrink-0" style="width: 7.5rem; height: 9rem;" />
-          <div class="overflow-hidden">
-            <p class="card-title text-truncate mb-0 mt-2 fs-5 fw-semibold" title="${title}">${title}</p>
-            ${subtitle ? `<p class="text-truncate mb-2">${subtitle}</p>` : ""}
-            <p class="card-subtitle text-muted small mb-1 text-truncate"><i class="bi bi-person me-1 text-primary"></i>${authors}</p>
-            <small class="text-muted d-block text-truncate"><i class="bi bi-building me-1 text-primary"></i>${publisher} • ${publishedDate}</small>
-          </div>
-        </div>
-      </div>
-      <div class="card-footer p-2 d-flex flex-column justify-content-between gap-2 bg-body">
-        <div class="d-flex align-items-center justify-content-between pt-2">
-          <span class="badge text-body bg-body border text-truncate" style="max-width: 140px;">${categories}</span>
-          <span class="fw-bold text-success fs-6">${price}</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  viewRawJsonEveLis(cardCol, data);
-  editJsonEveLis(cardCol, docSnap, renderItem);
-  return cardCol;
-}
-
-async function renderItems() {
+async function renderItems(currUser) {
   try {
     const container = document.querySelector("#products-container");
     if (container) {
-      await renderQueryResult(
+      const sortedDocs = await renderQueryResult(
         collection(db, "products"),
         container,
-        renderItem,
+        renderUniversalProductCard,
+        ["admin"],
       );
+      container.addEventListener("click", async (e) => {
+        const target = e.target.closest("[data-action]");
+        if (!target) return;
+
+        const action = target.dataset.tool;
+        const bookId = target.dataset.uid;
+
+        const bookDoc = sortedDocs.find((doc) => doc.id === bookId);
+        if (!bookDoc) return;
+
+        const productData = bookDoc.data();
+
+        switch (action) {
+          case "view-metadata": {
+            viewMetadata(bookDoc);
+            break;
+          }
+
+          case "edit-json": {
+            editJson(bookDoc, renderUniversalProductCard, [
+              bookDoc,
+              currUser ? "user" : "guest",
+            ]);
+          }
+
+          case "view-raw-json": {
+            viewRawJson(productData);
+          }
+        }
+      });
     }
   } catch (error) {
     showToast("Failed to load products: ", "danger", error);
@@ -145,18 +99,23 @@ function renderOrder(docSnap) {
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
               <li>
-                <a class="dropdown-item" data-tool="view-raw-json" href="#">
+                <a class="dropdown-item" data-tool="view-raw-json" href="#" data-action data-uid="${docSnapId}">
                   <i class="bi bi-code-slash me-2 text-info"></i>View Raw JSON
                 </a>
               </li>
               <li>
-                <a class="dropdown-item" data-tool="edit-json" href="#" data-collection="orders" data-uid="${docSnapId}">
+                <a class="dropdown-item" data-tool="change-status" href="#" data-action data-uid="${docSnapId}">
+                  <i class="bi bi-tag-fill text-info-emphasis"></i> Change Order Status
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" data-tool="edit-json" href="#" data-collection="orders" data-action data-uid="${docSnapId}">
                   <i class="bi bi-pencil-square me-2 text-warning"></i>Edit Document JSON
                 </a>
               </li>
               <li><hr class="dropdown-divider"></li>
               <li>
-                <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="orders" data-uid="${docSnapId}">
+                <a href="#" class="dropdown-item text-danger" data-tool="delete" data-collection="orders" data-action data-uid="${docSnapId}">
                   <i class="bi bi-trash me-2"></i>Delete Order
                 </a>
               </li>
@@ -184,17 +143,99 @@ function renderOrder(docSnap) {
       </div>
     </div>
   `;
-
-  viewRawJsonEveLis(cardCol, data);
-  editJsonEveLis(cardCol, docSnap, renderOrder);
   return cardCol;
 }
 
-async function renderOrders() {
+async function renderOrders(currUser) {
   try {
     const container = document.querySelector("#orders-container");
     if (container) {
-      await renderQueryResult(collection(db, "orders"), container, renderOrder);
+      const sortedDocs = await renderQueryResult(
+        collection(db, "orders"),
+        container,
+        renderOrder,
+      );
+
+      container.addEventListener("click", async (e) => {
+        const target = e.target.closest("[data-action]");
+        if (!target) return;
+
+        const action = target.dataset.tool;
+        const orderId = target.dataset.uid;
+
+        const orderDoc = sortedDocs.find((doc) => doc.id === orderId);
+        if (!orderDoc) return;
+
+        const data = orderDoc.data();
+
+        switch (action) {
+          case "change-status": {
+            const { ModalEl, modal } = showModal(
+              `<div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0 fw-semibold">Order Status</h6>
+                <span id="current-status-badge" class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">
+                  <i class="bi bi-info-circle me-1"></i>${data.status.toUpperCase()}
+                </span>
+              </div>
+
+              <select class="form-select form-select-sm mb-2" id="select-status-form">
+                <option value="pending" ${data.status === "pending" ? "selected" : ""}>Pending</option>
+                <option value="processing" ${data.status === "processing" ? "selected" : ""}>Processing</option>
+                <option value="shipped" ${data.status === "shipped" ? "selected" : ""}>Shipped</option>
+                <option value="delivered" ${data.status === "delivered" ? "selected" : ""}>Delivered</option>
+                <option value="cancelled" ${data.status === "cancelled" ? "selected" : ""}>Cancelled</option>
+              </select>
+
+              <button id="change-status" class="btn btn-sm btn-outline-info w-100 d-flex align-items-center justify-content-center gap-1">
+                <i class="bi bi-arrow-repeat"></i> Update Status
+              </button>
+              `,
+              "Change status",
+            );
+            ModalEl.querySelector("#change-status").addEventListener(
+              "click",
+              () => {
+                const selectForm = ModalEl.querySelector("#select-status-form");
+                if (selectForm.value === data.status) {
+                  showToast(
+                    "Select an status other than the current status.",
+                    "warning",
+                  );
+                  return;
+                }
+                updateOrderStatus(orderId, selectForm.value);
+                modal.hide();
+                data.status = selectForm.value;
+                const localSnap = {
+                  id: orderId,
+                  data: () => data,
+                };
+                document
+                  .querySelector(`[data-parent-id="${orderId}"]`)
+                  .replaceWith(renderOrder(localSnap));
+              },
+            );
+            break;
+          }
+
+          case "view-metadata": {
+            viewMetadata(orderDoc);
+            break;
+          }
+
+          case "edit-json": {
+            editJson(orderDoc, renderUniversalProductCard, [
+              orderDoc,
+              currUser ? "user" : "guest",
+            ]);
+            break;
+          }
+
+          case "view-raw-json": {
+            viewRawJson(data);
+          }
+        }
+      });
     }
   } catch (error) {
     showToast("Failed to load orders: ", "danger", error);
@@ -204,12 +245,32 @@ async function renderOrders() {
 document.addEventListener("DOMContentLoaded", async () => {
   createCustomCss();
   deleteDocEveLis();
-  document
-    .getElementById("add-books-btn")
-    .addEventListener("click", async () => {
-      const qty = Number(document.getElementById("add-books-quantity").value);
-      await addItems(qty);
-    });
+  const quantityInput = document.getElementById("add-books-quantity");
+  const addBooksButton = document.getElementById("add-books-btn");
+  quantityInput.addEventListener("input", () => {
+    const valid =
+      Number.isInteger(quantityInput.valueAsNumber) &&
+      quantityInput.valueAsNumber >= 1 &&
+      quantityInput.valueAsNumber <= 100;
+    setFieldFeedback(
+      quantityInput,
+      valid,
+      "Enter a whole number from 1 to 100.",
+    );
+    addBooksButton.disabled = !valid;
+  });
+  addBooksButton.addEventListener("click", async () => {
+    const qty = quantityInput.valueAsNumber;
+    if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
+      setFieldFeedback(
+        quantityInput,
+        false,
+        "Enter a whole number from 1 to 100.",
+      );
+      return;
+    }
+    await addItems(qty);
+  });
   const user = await getCurrentUser();
   const isAdmin_ = await isAdmin(user);
   if (!isAdmin_) {
@@ -217,5 +278,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   updateNavbar(isAdmin_, user);
-  await Promise.all([renderItems(), renderOrders()]);
+  await Promise.all([renderItems(user), renderOrders(user)]);
 });

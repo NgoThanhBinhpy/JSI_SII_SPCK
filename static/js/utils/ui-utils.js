@@ -70,51 +70,69 @@ export function showToast(message, type = "danger", error, delay = 3000) {
 }
 
 /**
+ * @param {HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement} input
+ * @param {boolean} valid
+ * @param {string} message
+ */
+export function setFieldFeedback(input, valid, message = "") {
+  if (!input) return false;
+
+  const feedbackContainer =
+    input.closest(".input-group, .mb-3, form") || input.parentElement;
+  const invalidFeedback = feedbackContainer?.querySelector(".invalid-feedback");
+  const validFeedback = feedbackContainer?.querySelector(".valid-feedback");
+
+  input.classList.toggle("is-valid", valid);
+  input.classList.toggle("is-invalid", !valid);
+  input.setAttribute("aria-invalid", String(!valid));
+
+  if (invalidFeedback) {
+    invalidFeedback.textContent = message;
+    invalidFeedback.classList.toggle("d-none", valid);
+  }
+  if (validFeedback) validFeedback.classList.toggle("d-none", !valid);
+
+  return valid;
+}
+
+/**
  * @param {string | HTMLElement} modalBody
  * @param {string} modalTitle
  * @param {boolean} htmlElement
  * @returns
  */
-export function showModal(
-  modalBody,
-  modalTitle,
-  htmlElement = false,
-  externalClasses = "",
-) {
+export function showModal(modalBody, modalTitle, modalFooter = "") {
   const ModalEl = document.createElement("div");
-  if (!htmlElement)
-    ModalEl.innerHTML = `<div class="modal-dialog modal-lg ${externalClasses}">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h1 class="modal-title fs-5" id="exampleModalLabel">${modalTitle}</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        ${modalBody}
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>`;
-  else {
-    ModalEl.innerHTML = `<div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h1 class="modal-title fs-5" id="exampleModalLabel">${modalTitle}</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>`;
-    ModalEl.querySelector(".modal-body").appendChild(modalBody);
-  }
   ModalEl.className = "modal fade";
   ModalEl.tabIndex = "-1";
+
+  ModalEl.innerHTML = `
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5">${modalTitle}</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body"></div>
+        <div class="modal-footer">
+          ${modalFooter}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const bodyContainer = ModalEl.querySelector(".modal-body");
+
+  // Automatically detect type: DOM Element vs HTML String
+  if (modalBody instanceof HTMLElement || modalBody instanceof Node) {
+    bodyContainer.appendChild(modalBody);
+  } else if (typeof modalBody === "string") {
+    bodyContainer.innerHTML = modalBody;
+  } else {
+    console.error("Invalid modalBody passed to showModal:", modalBody);
+    bodyContainer.innerHTML = `<p class="text-danger mb-0">Error: Unable to render modal contents.</p>`;
+  }
+
   document.body.appendChild(ModalEl);
 
   const modal = new bootstrap.Modal(ModalEl);
@@ -128,17 +146,12 @@ export function showModal(
 }
 
 /**
- * @param {HTMLElement} parentEl
  * @param {object} obj
  * @param {string} title
  */
-export function viewRawJsonEveLis(parentEl, obj, title = "Raw JSON") {
-  parentEl
-    .querySelector('[data-tool="view-raw-json"]')
-    .addEventListener("click", () => {
-      const rawJsonEl = createTreeViewer(obj);
-      showModal(rawJsonEl, title, true);
-    });
+export function viewRawJson(obj, title = "Raw JSON") {
+  const rawJsonEl = createTreeViewer(obj);
+  showModal(rawJsonEl, title, true);
 }
 
 export function getRelativePath(pageName) {
@@ -222,7 +235,9 @@ export function updateNavbar(isAdmin_, user) {
       sessionStorage.removeItem("CART_KEY");
       updateNavbar(isAdmin_, user);
     });
-} /**
+}
+
+/**
  * @param {object} book
  * @returns {object}
  */

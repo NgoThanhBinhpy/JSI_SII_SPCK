@@ -21,7 +21,7 @@ import {
   updateDoc,
   deleteDoc,
 } from "../firebase-config.js";
-import { showToast, showModal } from "./ui-utils.js";
+import { showToast, showModal, setFieldFeedback } from "./ui-utils.js";
 
 export async function deleteUserAndDoc(user) {
   try {
@@ -379,6 +379,8 @@ export async function changeUserPassword(user) {
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock"></i></span>
           <input type="password" class="form-control" id="new-password" placeholder="Enter new password" required />
+          <div class="invalid-feedback">Password must be at least 6 characters.</div>
+          <div class="valid-feedback">Password is valid.</div>
         </div>
       </div>
       <div class="mb-3">
@@ -386,6 +388,8 @@ export async function changeUserPassword(user) {
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
           <input type="password" class="form-control" id="confirm-password" placeholder="Confirm new password" required />
+          <div class="invalid-feedback">Passwords must match.</div>
+          <div class="valid-feedback">Passwords match.</div>
         </div>
       </div>
 
@@ -401,11 +405,24 @@ export async function changeUserPassword(user) {
       const confirmPassword = document
         .getElementById("confirm-password")
         .value.trim();
-      if (!newPassword || !confirmPassword) {
-        showToast("Please fill in all the fields", "waring");
-      }
-      if (confirmPassword != newPassword) {
-        showToast("New passwords do not matched", "warning");
+      const newPasswordInput = document.getElementById("new-password");
+      const confirmPasswordInput = document.getElementById("confirm-password");
+      const newPasswordValid = newPassword.length >= 6;
+      const passwordsMatch =
+        confirmPassword.length >= 6 && confirmPassword === newPassword;
+      setFieldFeedback(
+        newPasswordInput,
+        newPasswordValid,
+        "Password must be at least 6 characters.",
+      );
+      setFieldFeedback(
+        confirmPasswordInput,
+        passwordsMatch,
+        "Passwords must match.",
+      );
+      if (!newPasswordValid || !passwordsMatch) {
+        showToast("Please correct the highlighted fields.", "warning");
+        return;
       }
       try {
         await updatePassword(user, newPassword).then(() => {

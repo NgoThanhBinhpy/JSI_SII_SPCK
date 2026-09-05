@@ -9,6 +9,7 @@ import {
   login,
   register,
   signInWithProvider,
+  setFieldFeedback,
 } from "./utils.js";
 
 createSetThemeEl();
@@ -17,29 +18,45 @@ const PasswordInput = document.getElementById("password-input");
 const logInBtn = document.getElementById("log-in-btn");
 const resBtn = document.getElementById("res-btn");
 
+function validateCredentials() {
+  const email = EmailInput.value.trim();
+  const password = PasswordInput.value.trim();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const passwordValid = password.length >= 6;
+
+  setFieldFeedback(
+    EmailInput,
+    emailValid,
+    email ? "Enter a valid email address." : "Email is required.",
+  );
+  setFieldFeedback(
+    PasswordInput,
+    passwordValid,
+    password
+      ? "Password must be at least 6 characters."
+      : "Password is required.",
+  );
+
+  return emailValid && passwordValid;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   logInBtn.addEventListener("click", async (e) => {
     e.preventDefault();
-    const LogEmailValue = EmailInput.value.trim();
-    const LogPasswordValue = PasswordInput.value.trim();
-
-    if (!LogEmailValue || !LogPasswordValue) {
-      showToast("Please fill in all credentials", "warning");
+    if (!validateCredentials()) {
+      showToast("Please correct the highlighted fields.", "warning");
       return;
     }
-    await login(LogEmailValue, LogPasswordValue);
+    await login(EmailInput.value.trim(), PasswordInput.value.trim());
   });
 
   resBtn.addEventListener("click", async (e) => {
     e.preventDefault();
-    const ResEmailValue = EmailInput.value.trim();
-    const ResPasswordValue = PasswordInput.value.trim();
-
-    if (!ResEmailValue || !ResPasswordValue) {
-      showToast("Please fill in all credentials", "warning");
+    if (!validateCredentials()) {
+      showToast("Please correct the highlighted fields.", "warning");
       return;
     }
-    await register(ResEmailValue, ResPasswordValue);
+    await register(EmailInput.value.trim(), PasswordInput.value.trim());
   });
   for (const curr of btnMap) {
     const btn = document.getElementById(curr.id);
@@ -50,6 +67,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
   }
+
+  EmailInput.addEventListener("input", validateCredentials);
+  PasswordInput.addEventListener("input", validateCredentials);
 });
 
 const btnMap = [

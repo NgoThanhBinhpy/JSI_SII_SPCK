@@ -38,13 +38,16 @@
         ></span>
         <div class="form-floating">
           <input
-            type="text"
+            type="email"
             class="form-control"
             id="email-input"
             placeholder="Email"
+            autocomplete="email"
           />
           <label for="email-input">Email</label>
         </div>
+        <div class="invalid-feedback">Enter a valid email address.</div>
+        <div class="valid-feedback">Email format looks good.</div>
       </div>
 
       <div class="input-group mb-3">
@@ -57,9 +60,14 @@
             class="form-control"
             id="password-input"
             placeholder="Password"
+            autocomplete="current-password"
           />
           <label for="password-input">Password</label>
         </div>
+        <div class="invalid-feedback">
+          Password must be at least 6 characters.
+        </div>
+        <div class="valid-feedback">Password is long enough.</div>
       </div>
 
       <div class="d-flex gap-2 mx-auto justify-content-center col-md-6">

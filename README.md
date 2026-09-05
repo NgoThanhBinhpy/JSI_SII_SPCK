@@ -101,11 +101,11 @@ Contains Firebase Authentication helpers, including account creation, email and 
 
 ### `static/js/utils/ui-utils.js`
 
-Contains browser UI helpers for Bootstrap toasts, modals, raw JSON viewing, relative navigation paths, the shared navbar, pricing calculation, and theme selection.
+Contains browser UI helpers for Bootstrap toasts, field validation feedback, modals, raw JSON viewing, relative navigation paths, the shared navbar, pricing calculation, and theme selection.
 
 ### `static/js/utils/db-utils.js`
 
-Contains Firestore and data helpers for query rendering, admin document deletion and JSON editing, user-role lookup, administrator checks, order creation, cart storage, and importing books from FreeAPI.
+Contains Firestore and data helpers for query rendering, admin document deletion and JSON editing, user-role lookup, administrator checks, order creation, cart storage, importing books from FreeAPI, order status updates, product payload normalization, and reusable product cards.
 
 The function reference below is grouped by the module that owns each function.
 
@@ -133,19 +133,43 @@ Creates an OAuth provider instance from the supplied provider class, signs in wi
 
 If Firebase reports that the email already belongs to another provider, the function obtains the pending credential. It links immediately when a current user is available; otherwise it opens `openLinkAccountModal()` so the user can verify the existing account before linking.
 
+### `getCurrentUser()`
+
+Returns a Promise that resolves with the current Firebase user or `null`. It subscribes to `onAuthStateChanged()` and unsubscribes after the first callback, providing a one-time authentication-state result.
+
+### `openLinkAccountModal(email, pendingCred)`
+
+Opens an account-linking modal when a provider credential conflicts with an existing Firebase account. It derives the conflicting provider from `pendingCred.providerId`, offers password verification or another OAuth provider, and links the credentials after successful verification.
+
+### `OpenReauthModal(user)`
+
+Opens a modal for sensitive-action re-authentication using the user's password, Google, or GitHub. It returns a Promise that resolves to `true` after successful authentication and `false` when the modal closes without authentication.
+
+### `deleteUserAndDoc(user)`
+
+Re-authenticates the user, deletes their `users/{uid}` Firestore document, deletes their Firebase Authentication account, and redirects to the index page. Errors are shown through a danger toast.
+
+### `changeUserPassword(user)`
+
+Re-authenticates the user, opens a new-password form, validates that both password fields match, and updates the Firebase password. It reports validation and Firebase errors with toasts.
+
 ## UI Utility Functions
 
 ### `showToast(message, type = "danger", error, delay = 3000)`
 
-Creates or reuses a fixed Bootstrap toast container, builds a toast using the requested Bootstrap contextual type, and displays it for the requested delay. Danger toasts can append `error.message`. Toast elements remove themselves after hiding. The function also logs informational messages, warnings, or errors to the console.
+Creates or reuses a fixed Bootstrap toast container, builds a toast using the requested Bootstrap contextual type, and displays it for the requested delay. Danger toasts can append `error.message`. Toast elements remove themselves after hiding. The function also writes grouped diagnostic output and a stack trace to the console.
 
-### `showModal(modalBody, modalTitle, htmlElement = false, externalClasses = "")`
+### `setFieldFeedback(input, valid, message = "")`
 
-Creates, displays, and returns a Bootstrap modal. When `htmlElement` is false, `modalBody` is inserted as an HTML string. When it is true, `modalBody` must be an `HTMLElement`, which is appended to the modal body. The optional `externalClasses` value is added to the dialog. The modal is removed from the document after it is hidden. The return value is `{ ModalEl, modal }`.
+Applies Bootstrap validation styling to an input. A truthy `valid` value removes the invalid state; a false value adds it and sets the associated feedback message when available.
 
-### `viewRawJsonEveLis(parentEl, obj, title = "Raw JSON")`
+### `showModal(modalBody, modalTitle, modalFooter = "")`
 
-Attaches a click handler to the `[data-tool="view-raw-json"]` element inside `parentEl`. Clicking it creates an expandable tree with `createTreeViewer(obj)` and opens that tree in a modal titled with `title`. The function name contains the existing `EveLis` spelling and is part of the current API.
+Creates, displays, and returns a Bootstrap modal. `modalBody` is inserted into the modal body as HTML, and `modalFooter` supplies optional footer markup. The modal is removed from the document after it is hidden. The return value is `{ ModalEl, modal }`.
+
+### `viewRawJson(obj, title = "Raw JSON")`
+
+Creates an expandable tree with `createTreeViewer(obj)` and opens it in a modal titled with `title`. It is a direct action helper; event delegation is handled by the page or reusable card that calls it.
 
 ### `getRelativePath(pageName)`
 
@@ -165,21 +189,21 @@ Applies a Bootstrap `data-bs-theme` value to the document root and stores the ch
 
 ### `createSetThemeEl()`
 
-Creates a fixed bottom-left dropup containing Light, Dark, and Auto options. It loads the saved theme, applies it through `setBootstrapTheme()`, updates the button icon, and listens for future theme selections. The selector is appended to `document.body`.
+Creates a fixed bottom-left dropup containing Light, Dark, and Auto options. It applies the saved theme through `setBootstrapTheme()`, updates the button icon, and listens for future theme selections. The selector is appended to `document.body`. The current code reads `color-scheme-perferance` when loading but writes `color-scheme-preference` when saving, so the storage key is inconsistent.
 
 ## Database Utility Functions
 
-### `renderQueryResult(docRef, container, renderFunction)`
+### `renderQueryResult(docRef, container, renderFunction, args = [])`
 
-Displays a Bootstrap loading spinner while awaiting `getDocs(docRef)`. It sorts the returned documents by ID using numeric-aware comparison, clears the loading state, calls `renderFunction(docSnap)` for each document, and appends each returned element. It returns the sorted document snapshots.
+Displays a Bootstrap loading spinner while awaiting `getDocs(docRef)`. It sorts the returned documents by ID using numeric-aware comparison, clears the loading state, calls `renderFunction(docSnap, ...args)` for each document, and appends each returned element. It returns the sorted document snapshots.
 
 ### `deleteDocEveLis(delOrCancel = "delete")`
 
 Registers one delegated click listener on `document.body` for `[data-tool="delete"]`. It opens a confirmation modal, then deletes the Firestore document identified by the clicked element's `data-collection` and `data-uid` attributes. On success it shows a toast and removes the matching element with `data-parent-id`.
 
-### `editJsonEveLis(parentEl, docSnap, renderFunc)`
+### `editJson(docSnap, renderFunc, args = [docSnap])`
 
-Attaches a JSON editor to the `[data-tool="edit-json"]` control in `parentEl`. It removes `createdAt` from the local data before displaying it, validates JSON on every text-area input, and disables saving while invalid. Saving merges the parsed JSON plus a new `updatedAt` timestamp into the Firestore document. After success it hides the modal and replaces the original card using `renderFunc()`.
+Opens a JSON editor for a Firestore document snapshot. It removes `createdAt` from the displayed copy, validates JSON on every text-area input, and disables saving while invalid. Saving merges the parsed JSON plus a new `updatedAt` timestamp into the Firestore document, then re-renders using `renderFunc(...args)`. The function is a direct modal action rather than an event-listener registration helper.
 
 ### `getUserRole(user)`
 
@@ -191,19 +215,35 @@ When `user` is provided, checks whether that user's `roleId` equals `admin`. Whe
 
 ### `createOrder(product, user, quantity = 1)`
 
-Creates a new document in `orders`, derives book and price information, and stores customer, item, quantity, pricing, status, payment status, and server timestamps. Shipping is fixed at `3.0`, and the total is unit price times quantity plus shipping. It returns the generated order ID.
+Creates a new document in `orders` from the normalized product shape. It derives `title`, `computedPrice`, `links.preview`, and `coverUrl`, then stores customer, item, quantity, pricing, status, payment status, and server timestamps. Shipping is fixed at `3.0`, and the total is unit price times quantity plus shipping. It returns the generated order ID.
 
 ### `addToCart(bookData, cardQtyBadge = null)`
 
 Reads the session cart, prevents duplicate product IDs, appends the complete book object, and writes the result back to `sessionStorage.CART_KEY`. It displays feedback and optionally updates a supplied cart badge.
 
-### `removeFromCart(id)`
+### `removeFromCart(data)`
 
-Finds and removes a cart item by product ID, then persists the updated array to `sessionStorage.CART_KEY`. It displays success or warning feedback.
+Receives cart data and persists the cart after the removal operation. The current implementation calls `filter()` without assigning its result, so it currently leaves the stored cart unchanged while still showing a success toast.
 
 ### `addItems(count = 10)`
 
-Fetches up to `count` books from FreeAPI, calculates a price for each book with `calculateBookPrice()`, and writes the products to Firestore in one batch. It reports empty responses and request or write failures through toasts.
+Fetches up to `count` books from FreeAPI, normalizes each book with `processProductPayload()`, and writes the products to Firestore in one batch. It reports empty responses and request or write failures through toasts.
+
+### `updateOrderStatus(orderId, newStatus)`
+
+Updates an order's `status` and `updatedAt` fields in Firestore, then displays a success or failure toast. This is intended for order-management controls.
+
+### `processProductPayload(rawBook)`
+
+Converts a raw API book into the normalized product shape used by the application. It creates consistent IDs, title and author fields, publication metadata, description, ratings, HTTPS cover URLs, computed USD pricing, preview/info/reader/buy links, and an `updatedAt` server timestamp.
+
+### `renderUniversalProductCard(docRef, mode = "guest")`
+
+Renders a product document into a reusable Bootstrap card. Guest and user modes include quantity, cart, and Buy Now controls; admin mode includes product editing and deletion controls. The card also exposes raw JSON and metadata actions.
+
+### `viewMetadata(docRef)`
+
+Displays the selected product's metadata in a modal, including its title, cover, authors, publisher, publication details, pricing, description, and available external links.
 
 ## Firestore Security Model
 
