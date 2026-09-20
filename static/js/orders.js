@@ -3,11 +3,11 @@ import {
   initBasicThings,
   showToast,
   isAdmin,
-  deleteDocEveLis,
-  viewRawJsonEveLis,
+  viewRawJson,
   renderQueryResult,
   updateNavbar,
   getCurrentUser,
+  viewMetadata,
 } from "./utils.js";
 async function renderAllOrders(user) {
   const uid = user.uid;
@@ -20,7 +20,33 @@ async function renderAllOrders(user) {
   try {
     const ordersRef = collection(db, "orders");
     const q = query(ordersRef, where("customer.uid", "==", uid));
-    await renderQueryResult(q, container, renderOrderCard);
+    const sortedDocs = await renderQueryResult(q, container, renderOrderCard);
+    container.addEventListener("click", async (e) => {
+      const target = e.target.closest("[data-action]");
+      if (!target) return;
+
+      const action = target.dataset.tool;
+      const orderId = target.dataset.uid;
+
+      const orderDoc = sortedDocs.find((doc) => doc.id === orderId);
+      if (!orderDoc) return;
+
+      const orderData = orderDoc.data();
+
+      switch (action) {
+        case "view-raw-json": {
+          viewRawJson(orderData.item);
+          break;
+        }
+        case "view-metadata": {
+          viewMetadata({
+            data: () => orderData.item,
+            exists: () => true,
+            id: orderId,
+          });
+        }
+      }
+    });
   } catch (e) {
     showToast("Error querying orders: ", "danger", e);
   }
@@ -39,20 +65,21 @@ function renderOrderCard(orderDoc) {
 
   const { status, paymentStatus, quantity, pricing, item, createdAt } = data;
 
-  const unitPrice = item?.unitPrice?.amount || pricing?.unitPrice?.amount || 0;
+  const unitPrice =
+    pricing?.unitPrice?.amount || pricing?.unitPrice?.amount || 0;
   const currency =
-    item?.unitPrice?.currency || pricing?.unitPrice?.currency || "USD";
+    pricing?.unitPrice?.currency || pricing?.unitPrice?.currency || "USD";
   const shippingFee = pricing?.shippingFee || 0;
   const totalAmount = unitPrice * quantity + shippingFee;
 
   let dateObj = null;
 
-  if (data.createdAt instanceof Date) {
-    dateObj = data.createdAt;
-  } else if (typeof data.createdAt?.toDate === "function") {
-    dateObj = data.createdAt.toDate();
-  } else if (data.createdAt?.seconds) {
-    dateObj = new Date(data.createdAt.seconds * 1000);
+  if (createdAt instanceof Date) {
+    dateObj = createdAt;
+  } else if (typeof createdAt?.toDate === "function") {
+    dateObj = createdAt.toDate();
+  } else if (createdAt?.seconds) {
+    dateObj = new Date(createdAt.seconds * 1000);
   } else {
     dateObj = new Date();
   }
@@ -76,7 +103,7 @@ function renderOrderCard(orderDoc) {
     : "bi-check-circle";
   const cardEl = document.createElement("div");
   cardEl.className = "w-100 order-card";
-  cardEl.dataset.parentId = orderDoc.id;
+  cardEl.dataset.parentId = orderId;
   cardEl.innerHTML = `
       <div class="card border-0 shadow-sm">
         
@@ -110,15 +137,9 @@ function renderOrderCard(orderDoc) {
               <p class="text-muted small mb-1">
                 Quantity: <strong>${quantity}</strong> | Unit Price: <strong>$${unitPrice.toFixed(2)} ${currency}</strong>
               </p>
-              ${
-                item?.infoLink
-                  ? `
-                <a href="${item.infoLink}" target="_blank" rel="noopener noreferrer" class="small text-decoration-none">
-                  <i class="bi bi-box-arrow-up-right me-1"></i>View Product Details
+                <a class="btn btn-link no-text-decoration" data-tool="view-metadata" data-action href="#" data-uid="${orderId}">
+                  <i class="bi bi-journal-text me-1"></i>View Metadata
                 </a>
-              `
-                  : ""
-              }
             </div>
 
             <div class="text-sm-end mt-2 mt-sm-0">
@@ -144,14 +165,13 @@ function renderOrderCard(orderDoc) {
             }
           </div>
           
-          <button class="btn btn-sm btn-outline-secondary" data-tool="view-raw-json" data-id="${orderId}">
+          <button class="btn btn-sm btn-outline-secondary" data-action data-tool="view-raw-json" data-uid="${orderId}">
             <i class="bi bi-code-slash me-1"></i> View Raw JSON
           </button>
         </div>
 
       </div>
   `;
-  viewRawJsonEveLis(cardEl, data);
   return cardEl;
 }
 

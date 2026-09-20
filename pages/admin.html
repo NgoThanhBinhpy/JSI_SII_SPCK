@@ -18,7 +18,7 @@
     />
     <link rel="stylesheet" href="../static/css/index.css" />
   </head>
-  <body class="bg-body">
+  <body class="bg-body d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">Coffee</a>
@@ -44,84 +44,86 @@
         </div>
       </div>
     </nav>
-    <div class="container bg-body p-4 rounded shadow-sm">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Admin Dashboard</h2>
-        <a href="../index.html" class="btn btn-outline-secondary"
-          >Back to Site</a
-        >
-      </div>
-
-      <ul class="nav nav-tabs" id="adminTabs" role="tablist">
-        <li class="nav-item">
-          <button
-            class="nav-link active"
-            id="orders-tab"
-            data-bs-toggle="tab"
-            data-bs-target="#orders-pane"
-            type="button"
+    <main class="flex-grow-1">
+      <div class="container bg-body p-4 rounded shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2>Admin Dashboard</h2>
+          <a href="../index.html" class="btn btn-outline-secondary"
+            >Back to Site</a
           >
-            Manage Orders
-          </button>
-        </li>
-        <li class="nav-item">
-          <button
-            class="nav-link"
-            id="products-tab"
-            data-bs-toggle="tab"
-            data-bs-target="#products-pane"
-            type="button"
-          >
-            Manage Products
-          </button>
-        </li>
-      </ul>
-
-      <div class="tab-content pt-3" id="adminTabsContent">
-        <div class="tab-pane fade show active" id="orders-pane">
-          <h4 class="mb-3">Customer Orders</h4>
-          <div class="row g-3" id="orders-container"></div>
         </div>
 
-        <div class="tab-pane fade" id="products-pane">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Product Catalog</h4>
-            <div class="d-flex flex-wrap align-items-start gap-2">
-              <div class="has-validation">
-                <div class="input-group">
-                  <button
-                    class="btn btn-primary"
-                    type="button"
-                    id="add-books-btn"
-                  >
-                    <i class="bi bi-cloud-download me-1"></i> Add API Books
-                  </button>
-                  <input
-                    type="number"
-                    id="add-books-quantity"
-                    class="form-control text-center"
-                    value="1"
-                    min="1"
-                    max="100"
-                    style="max-width: 75px"
-                    aria-label="Quantity of books to fetch"
-                  />
-                </div>
-                <div data-target="#add-books-quantity"></div>
-              </div>
-              <button
-                class="btn btn-outline-success"
-                type="button"
-                id="manual-add-book-btn"
-              >
-                <i class="bi bi-plus-circle me-1"></i> Manual / Bulk Add
-              </button>
-            </div>
+        <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+          <li class="nav-item">
+            <button
+              class="nav-link active"
+              id="orders-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#orders-pane"
+              type="button"
+            >
+              Manage Orders
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              id="products-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#products-pane"
+              type="button"
+            >
+              Manage Products
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content pt-3" id="adminTabsContent">
+          <div class="tab-pane fade show active" id="orders-pane">
+            <h4 class="mb-3">Customer Orders</h4>
+            <div class="row g-3" id="orders-container"></div>
           </div>
-          <div class="row row-cols-3 g-3" id="products-container"></div>
+
+          <div class="tab-pane fade" id="products-pane">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4>Product Catalog</h4>
+              <div class="d-flex flex-wrap align-items-start gap-2">
+                <div class="has-validation">
+                  <div class="input-group">
+                    <button
+                      class="btn btn-primary"
+                      type="button"
+                      id="add-books-btn"
+                    >
+                      <i class="bi bi-cloud-download me-1"></i> Add API Books
+                    </button>
+                    <input
+                      type="number"
+                      id="add-books-quantity"
+                      class="form-control text-center"
+                      value="1"
+                      min="1"
+                      max="100"
+                      style="max-width: 75px"
+                      aria-label="Quantity of books to fetch"
+                    />
+                  </div>
+                  <div data-target="#add-books-quantity"></div>
+                </div>
+                <button
+                  class="btn btn-outline-success"
+                  type="button"
+                  id="manual-add-book-btn"
+                >
+                  <i class="bi bi-plus-circle me-1"></i> Manual / Bulk Add
+                </button>
+              </div>
+            </div>
+            <div class="row row-cols-3 g-3" id="products-container"></div>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
 
     <script type="module" src="../static/js/admin.js"></script>
   </body>

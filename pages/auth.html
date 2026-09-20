@@ -28,65 +28,68 @@
     />
     <link rel="stylesheet" href="../static/css/index.css" />
   </head>
-  <body class="bg-body">
-    <div
-      class="card col-5 mx-auto mt-4 p-2 border-0 d-flex flex-column gap-2 bg-transparent"
-    >
-      <h3 class="mx-auto">Sign in / Register</h3>
-      <div class="input-group mb-3">
-        <span class="input-group-text"
-          ><i class="fa-solid fa-at text-secondary"></i
-        ></span>
-        <div class="form-floating">
-          <input
-            type="email"
-            class="form-control"
-            id="email-input"
-            placeholder="Email"
-            autocomplete="email"
-          />
-          <label for="email-input">Email</label>
+  <body class="bg-body d-flex flex-column min-vh-100">
+    <main class="flex-grow-1">
+      <div
+        class="card col-5 mx-auto mt-4 p-2 border-0 d-flex flex-column gap-2 bg-transparent"
+      >
+        <h3 class="mx-auto">Sign in / Register</h3>
+        <div class="input-group mb-3">
+          <span class="input-group-text"
+            ><i class="fa-solid fa-at text-secondary"></i
+          ></span>
+          <div class="form-floating">
+            <input
+              type="email"
+              class="form-control"
+              id="email-input"
+              placeholder="Email"
+              autocomplete="email"
+            />
+            <label for="email-input">Email</label>
+          </div>
+          <div data-target="#email-input"></div>
         </div>
-        <div data-target="#email-input"></div>
-      </div>
 
-      <div class="input-group mb-3">
-        <span class="input-group-text"
-          ><i class="fa-solid fa-key text-secondary"></i
-        ></span>
-        <div class="form-floating">
-          <input
-            type="password"
-            class="form-control"
-            id="password-input"
-            placeholder="Password"
-            autocomplete="current-password"
-          />
-          <label for="password-input">Password</label>
+        <div class="input-group mb-3">
+          <span class="input-group-text"
+            ><i class="fa-solid fa-key text-secondary"></i
+          ></span>
+          <div class="form-floating">
+            <input
+              type="password"
+              class="form-control"
+              id="password-input"
+              placeholder="Password"
+              autocomplete="current-password"
+            />
+            <label for="password-input">Password</label>
+          </div>
+          <div data-target="#password-input"></div>
         </div>
-        <div data-target="#password-input"></div>
-      </div>
 
-      <div class="d-flex gap-2 mx-auto justify-content-center col-md-6">
-        <button class="btn btn-outline-info col-8 mx-auto" id="log-in-btn">
-          Sign in
-        </button>
-        <button class="btn btn-outline-info col-8 mx-auto" id="res-btn">
-          Register
-        </button>
-      </div>
+        <div class="d-flex gap-2 mx-auto justify-content-center col-md-6">
+          <button class="btn btn-outline-info col-8 mx-auto" id="log-in-btn">
+            Sign in
+          </button>
+          <button class="btn btn-outline-info col-8 mx-auto" id="res-btn">
+            Register
+          </button>
+        </div>
 
-      <hr />
-      <h5 class="mx-auto">Sign in using other providers</h5>
-      <div class="d-flex gap-2 justify-content-center">
-        <button class="btn border-0 m-0" id="google-btn">
-          <i class="fa-brands fa-google"></i>
-        </button>
-        <button class="btn border-0 m-0" id="github-btn">
-          <i class="fa-brands fa-github"></i>
-        </button>
+        <hr />
+        <h5 class="mx-auto">Sign in using other providers</h5>
+        <div class="d-flex gap-2 justify-content-center">
+          <button class="btn border-0 m-0" id="google-btn">
+            <i class="fa-brands fa-google"></i>
+          </button>
+          <button class="btn border-0 m-0" id="github-btn">
+            <i class="fa-brands fa-github"></i>
+          </button>
+        </div>
       </div>
-    </div>
+    </main>
+
     <script type="module" src="../static/js/auth.js"></script>
   </body>
 </html>

@@ -4,8 +4,8 @@ export * from "./utils/db-utils.js";
 import { createFooter, createSetThemeEl } from "./utils/ui-utils.js";
 import { deleteDocEveLis } from "./utils/db-utils.js";
 
-export function initBasicThings() {
+export function initBasicThings(noDeleteDoc = false) {
   createFooter();
   createSetThemeEl();
-  deleteDocEveLis();
+  if (!noDeleteDoc) deleteDocEveLis();
 }

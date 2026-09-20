@@ -156,7 +156,3 @@ input[type="file"] {
 .tree-children.visible {
   display: block;
 }
-
-body {
-  min-height: 100vh;
-}

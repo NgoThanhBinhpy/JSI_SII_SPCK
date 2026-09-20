@@ -131,7 +131,7 @@ function renderBookCard(item) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  initBasicThings();
+  initBasicThings(true);
   const user = await getCurrentUser();
   renderCart(user);
   const isAdmin_ = await isAdmin(user);

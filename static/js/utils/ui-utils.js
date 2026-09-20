@@ -158,7 +158,7 @@ export function showModal(modalBody = "", modalTitle = "", modalFooter = "") {
  */
 export function viewRawJson(obj, title = "Raw JSON") {
   const rawJsonEl = createTreeViewer(obj);
-  showModal(rawJsonEl, title, true);
+  showModal(rawJsonEl, title);
 }
 
 export function getRelativePath(pageName) {
@@ -240,7 +240,7 @@ export function updateNavbar(isAdmin_, user) {
     navbar.querySelector("#log-out-btn").addEventListener("click", async () => {
       await signOut(auth);
       sessionStorage.removeItem("CART_KEY");
-      updateNavbar(isAdmin_, user);
+      window.location.href = getRelativePath("auth.html");
     });
 }
 
@@ -345,7 +345,7 @@ export function createSetThemeEl() {
 export function createFooter() {
   const footer = document.createElement("footer");
 
-  footer.className = "border-top mt-5 py-4 position-absolute top-100 w-100";
+  footer.className = "border-top mt-5 py-4 position-relative top-100 w-100";
   footer.innerHTML = `
     <div class="container text-center">
       <h6 class="mb-1">Book Collection</h6>

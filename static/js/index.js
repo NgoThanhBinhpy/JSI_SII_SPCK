@@ -37,12 +37,14 @@ async function renderAllBookCards(currUser) {
 
     switch (action) {
       case "add-to-cart": {
+        if (!currUser) return;
         const cartBadge = document.querySelector("#cart-badge");
         addToCart(productData, cartBadge);
         break;
       }
 
       case "place-order": {
+        if (!currUser) return;
         const cardFooter =
           target.closest(".card-footer") || target.closest(".card-body");
         const qtyInput = cardFooter?.querySelector(".qty-selector");

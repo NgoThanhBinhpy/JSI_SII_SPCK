@@ -208,8 +208,7 @@ export async function openLinkAccountModal(email, pendingCred) {
   }
 
   ${
-    providerId !== "password" &&
-    (providerId !== "google.com" || providerId !== "github.com")
+    providerId !== "password"
       ? `<div class="position-relative text-center my-4">
           <hr class="border-secondary-subtle opacity-50 m-0" />
           <span class="position-absolute top-50 start-50 translate-middle bg-body px-3 text-body-secondary small fw-medium">

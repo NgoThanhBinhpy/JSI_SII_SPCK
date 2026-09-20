@@ -31,7 +31,6 @@ export async function renderQueryResult(
   </div>
 
 </div>`;
-  const originalArgs = [...args];
   const querySnapshot = await getDocs(docRef);
   const sortedDocs = querySnapshot.docs.sort((a, b) =>
     a.id.localeCompare(b.id, undefined, { numeric: true }),
@@ -39,8 +38,7 @@ export async function renderQueryResult(
   console.log(sortedDocs);
   container.innerHTML = "";
   for (const docSnap of sortedDocs) {
-    args = [docSnap, ...originalArgs];
-    const cardEl = renderFunction(...args);
+    const cardEl = renderFunction(docSnap, ...args);
     container.appendChild(cardEl);
   }
   return sortedDocs;
@@ -58,7 +56,7 @@ export function deleteDocEveLis(deleteContent = "delete") {
       `
           <div>
             <h6>This action can not be undone!</h6>
-            <a class="btn btn-danger confirm-delete-btn text-capitalize" data-bs-dismiss="modal">${deleteContent[0]} this?</a>
+            <a class="btn btn-danger confirm-delete-btn text-capitalize" data-bs-dismiss="modal">${deleteContent} this?</a>
           </div>
           `,
       `<div class="fs-5">Confirm ${deleteContent}?</div>`,
@@ -84,11 +82,7 @@ export function deleteDocEveLis(deleteContent = "delete") {
   });
 }
 
-/**
- * @param {HTMLElement} parentEl
- * @param {Function} renderFunc
- */
-export function editJson(docSnap, renderFunc, args = [docSnap]) {
+export function editJson(docSnap, renderFunc, collection, args = []) {
   const editorContainer = document.createElement("div");
   const data = docSnap.data();
   delete data.createdAt;
@@ -108,7 +102,7 @@ export function editJson(docSnap, renderFunc, args = [docSnap]) {
       </div>
       <div class="d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-warning fw-semibold" data-uid="${docSnap.id}" id="save-json-btn">
+        <button type="button" class="btn btn-warning fw-semibold" data-uid="${docSnap.id}" data-collection="${collection}" id="save-json-btn">
           <i class="bi bi-check-lg me-1"></i>Save Changes
         </button>
       </div>
@@ -151,10 +145,12 @@ export function editJson(docSnap, renderFunc, args = [docSnap]) {
       showToast("Successfully updated document JSON!", "success");
       modal.hide();
       const localSnap = {
-        id: id,
+        id: docSnap.id,
         data: () => updatedData,
       };
-      parentEl.replaceWith(renderFunc(...args));
+      document
+        .querySelector(`[data-parent-id="${docSnap.id}"]`)
+        .replaceWith(renderFunc(localSnap, ...args));
     } catch (err) {
       showToast("Error updating JSON document: ", "danger", err);
     }
@@ -185,32 +181,19 @@ export async function isAdmin(user = null) {
  * @param {object} product
  * @param {*} user
  * @param {number} quantity
- * @returns {string}
  */
 export async function createOrder(product, user, quantity = 1) {
   try {
     const newOrderRef = doc(collection(db, "orders"));
-    const title = product.title || "Untitled",
-      unitPrice = product.computedPrice,
-      infoLink = product.links?.preview || "",
-      rawImageLink = product.coverUrl || "",
+    const unitPrice = product.computedPrice,
       shippingFee = 3.0;
-    const coverUrl = rawImageLink
-      ? rawImageLink
-      : `https://books.google.com/books/publisher/content/images/frontcover/${product.id}`;
-
     const order = {
       customer: {
         uid: user.uid,
         displayName: user.displayName || "Customer",
         email: user.email,
       },
-      item: {
-        productId: product.id,
-        title: title,
-        coverUrl: coverUrl,
-        infoLink: infoLink,
-      },
+      item: product,
       quantity: quantity,
       pricing: {
         shippingFee: shippingFee,
@@ -354,7 +337,9 @@ export function processProductPayload(rawBook) {
         const computedAmount =
           rawBook.pageCount > 0
             ? parseFloat((5 + rawBook.pageCount * 0.05).toFixed(2))
-            : parseFloat((10 + (parseInt(id, 10) % 30 || 5) + 0.99).toFixed(2));
+            : parseFloat(
+                (10 + (parseInt(rawBook.id, 10) % 30 || 5) + 0.99).toFixed(2),
+              );
         rawBook.computedPrice = { amount: computedAmount, currency: "USD" };
       }
       if (!rawBook.language) rawBook.language = "en";
@@ -623,7 +608,7 @@ export function processMainBulkPayload(payloads) {
  */
 export async function processPayloadManualForm(FormEl) {
   const formData = new FormData(FormEl);
-  const coverFile = ModalEl.querySelector("#manualCoverFile").files[0];
+  const coverFile = FormEl.querySelector("#manualCoverFile").files[0];
   const coverUrl = formData.get("coverUrl").trim();
   try {
     let storedCoverUrl = coverUrl;
@@ -775,20 +760,20 @@ export function renderUniversalProductCard(docRef, mode = "guest") {
                   value="1"
                   min="1" 
                   max="99"
-                  ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disable` : ""}
+                  ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disabled` : ""}
                   >
 
               </div>
             </div>
 
             <div class="col-6 col-sm-3">
-              <button class="btn btn-sm btn-outline-primary w-100 d-flex align-items-center justify-content-center" data-action data-tool="add-to-cart" title="Add to Cart" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to add products to cart" disable` : ""}>
+              <button class="btn btn-sm btn-outline-primary w-100 d-flex align-items-center justify-content-center" data-action data-tool="add-to-cart" title="Add to Cart" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to add products to cart" disabled` : ""}>
                 <i class="bi bi-cart-plus fs-6"></i>
               </button>
             </div>
 
             <div class="col-6 col-sm-4">
-              <button class="btn btn-sm btn-primary w-100 fw-semibold" data-action data-tool="place-order" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disable` : ""}>
+              <button class="btn btn-sm btn-primary w-100 fw-semibold" data-action data-tool="place-order" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disabled` : ""}>
                 Buy Now
               </button>
             </div>

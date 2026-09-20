@@ -28,7 +28,7 @@
     />
     <link rel="stylesheet" href="../static/css/index.css" />
   </head>
-  <body class="bg-body">
+  <body class="bg-body d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">Coffee</a>
@@ -54,95 +54,100 @@
         </div>
       </div>
     </nav>
-    <div class="container my-4">
-      <div class="row g-4">
-        <div class="col-md-3">
-          <div class="card border-0 shadow-sm">
-            <div class="card-body p-2">
-              <div
-                class="nav flex-column nav-pills"
-                id="accountTabs"
-                role="tablist"
-                aria-orientation="vertical"
-              >
-                <button
-                  class="nav-link active text-start d-flex align-items-center gap-2"
-                  id="tab-info"
-                  data-bs-toggle="pill"
-                  data-bs-target="#pane-info"
-                  type="button"
-                  role="tab"
+    <main class="flex-grow-1">
+      <div class="container my-4">
+        <div class="row g-4">
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-2">
+                <div
+                  class="nav flex-column nav-pills"
+                  id="accountTabs"
+                  role="tablist"
+                  aria-orientation="vertical"
                 >
-                  <i class="bi bi-info-circle"></i> Account Info
-                </button>
+                  <button
+                    class="nav-link active text-start d-flex align-items-center gap-2"
+                    id="tab-info"
+                    data-bs-toggle="pill"
+                    data-bs-target="#pane-info"
+                    type="button"
+                    role="tab"
+                  >
+                    <i class="bi bi-info-circle"></i> Account Info
+                  </button>
 
-                <button
-                  class="nav-link text-start d-flex align-items-center gap-2"
-                  id="tab-actions"
-                  data-bs-toggle="pill"
-                  data-bs-target="#pane-actions"
-                  type="button"
-                  role="tab"
-                >
-                  <i class="bi bi-shield-lock"></i> Account Actions
-                </button>
+                  <button
+                    class="nav-link text-start d-flex align-items-center gap-2"
+                    id="tab-actions"
+                    data-bs-toggle="pill"
+                    data-bs-target="#pane-actions"
+                    type="button"
+                    role="tab"
+                  >
+                    <i class="bi bi-shield-lock"></i> Account Actions
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="col-md-9">
-          <div class="tab-content" id="accountTabsContent">
-            <div
-              class="tab-pane fade show active"
-              id="pane-info"
-              role="tabpanel"
-            >
-              <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent fw-bold">
-                  Account Overview
+          <div class="col-md-9">
+            <div class="tab-content" id="accountTabsContent">
+              <div
+                class="tab-pane fade show active"
+                id="pane-info"
+                role="tabpanel"
+              >
+                <div class="card border-0 shadow-sm">
+                  <div class="card-header bg-transparent fw-bold">
+                    Account Overview
+                  </div>
+                  <div class="card-body" id="user-info"></div>
                 </div>
-                <div class="card-body" id="user-info"></div>
               </div>
-            </div>
 
-            <div class="tab-pane fade" id="pane-actions" role="tabpanel">
-              <div class="card border-0 shadow-sm mb-4 v-stack gap-2 p-3">
-                <div class="card-header bg-transparent fw-bold">Security</div>
-                <div
-                  class="card-body d-flex align-items-center justify-content-between"
-                >
-                  <div>
-                    <h6 class="mb-1">Password</h6>
-                    <p class="text-muted small mb-0">
-                      Manage and update your account password.
-                    </p>
-                  </div>
-                  <button
-                    class="btn btn-outline-primary btn-sm"
-                    id="btnChangePassword"
-                  >
-                    <i class="bi bi-key me-1"></i> Update
-                  </button>
-                </div>
-
-                <div class="card border-danger shadow-sm">
-                  <div class="card-header bg-danger text-white fw-bold">
-                    Danger Zone
-                  </div>
+              <div class="tab-pane fade" id="pane-actions" role="tabpanel">
+                <div class="card border-0 shadow-sm mb-4 v-stack gap-2 p-3">
+                  <div class="card-header bg-transparent fw-bold">Security</div>
                   <div
                     class="card-body d-flex align-items-center justify-content-between"
                   >
                     <div>
-                      <h6 class="mb-1 text-danger">Delete Account</h6>
+                      <h6 class="mb-1">Password</h6>
                       <p class="text-muted small mb-0">
-                        Permanently erase your account data. This action cannot
-                        be undone.
+                        Manage and update your account password.
                       </p>
                     </div>
-                    <button class="btn btn-danger btn-sm" id="btnDeleteAccount">
-                      Delete Account
+                    <button
+                      class="btn btn-outline-primary btn-sm"
+                      id="btnChangePassword"
+                    >
+                      <i class="bi bi-key me-1"></i> Update
                     </button>
+                  </div>
+
+                  <div class="card border-danger shadow-sm">
+                    <div class="card-header bg-danger text-white fw-bold">
+                      Danger Zone
+                    </div>
+                    <div
+                      class="card-body d-flex align-items-center justify-content-between"
+                    >
+                      <div>
+                        <h6 class="mb-1 text-danger">Delete Account</h6>
+                        <p class="text-muted small mb-0">
+                          Permanently erase your account data. This action
+                          cannot be undone.
+                        </p>
+                      </div>
+                      <button
+                        class="btn btn-danger btn-sm"
+                        id="btnDeleteAccount"
+                      >
+                        Delete Account
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -150,7 +155,8 @@
           </div>
         </div>
       </div>
-    </div>
+    </main>
+
     <script type="module" src="../static/js/user.js"></script>
   </body>
 </html>

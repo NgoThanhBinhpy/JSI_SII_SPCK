@@ -26,7 +26,7 @@ import {
   writeBatch,
 } from "./firebase-config.js";
 
-async function renderItems(currUser) {
+async function renderItems() {
   try {
     const container = document.querySelector("#products-container");
     if (container) {
@@ -55,9 +55,8 @@ async function renderItems(currUser) {
           }
 
           case "edit-json": {
-            editJson(bookDoc, renderUniversalProductCard, [
-              bookDoc,
-              currUser ? "user" : "guest",
+            editJson(bookDoc, renderUniversalProductCard, "products", [
+              "admin",
             ]);
             break;
           }
@@ -153,7 +152,7 @@ function renderOrder(docSnap) {
   return cardCol;
 }
 
-async function renderOrders(currUser) {
+async function renderOrders() {
   try {
     const container = document.querySelector("#orders-container");
     if (container) {
@@ -231,10 +230,7 @@ async function renderOrders(currUser) {
           }
 
           case "edit-json": {
-            editJson(orderDoc, renderUniversalProductCard, [
-              orderDoc,
-              currUser ? "user" : "guest",
-            ]);
+            editJson(orderDoc, renderOrder, "orders");
             break;
           }
 
@@ -426,7 +422,7 @@ async function initAddBookBtns() {
             batch.set(bookRef, {
               id: bookRef.id,
               ...book,
-              createAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
             });
           }
           await batch.commit();
@@ -434,8 +430,8 @@ async function initAddBookBtns() {
           const bookRef = doc(collection(db, "products"));
           await setDoc(bookRef, {
             id: bookRef.id,
-            ...book,
-            createAt: serverTimestamp(),
+            ...processedJsonContent,
+            createdAt: serverTimestamp(),
           });
         }
         showToast("Successfully added the uploaded books", "success");
@@ -461,5 +457,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   updateNavbar(isAdmin_, user);
-  await Promise.all([renderItems(user), renderOrders(user)]);
+  await Promise.all([renderItems(), renderOrders()]);
 });
