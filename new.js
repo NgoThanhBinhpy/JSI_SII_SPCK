@@ -1,105 +1,14 @@
-const PREVIEW_LENGTH = 20;
-const HTTP_PREFIX = "http";
-const styles = `
-  .console-tree {
-    font-family: 'Courier New', monospace;
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-    padding: 12px;
-    font-size: 13px;
-    line-height: 1.6;
-    overflow-x: auto;
-  }
-  
-  .tree-item {
-    margin-left: 0;
-  }
-  
-  .tree-item-content {
-    display: flex;
-    align-items: center;
-    padding: 2px 0;
-    cursor: default;
-    user-select: none;
-  }
-  
-  .tree-toggle {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    text-align: center;
-    cursor: pointer;
-    color: #858585;
-    font-weight: bold;
-    user-select: none;
-    flex-shrink: 0;
-  }
-  
-  .tree-toggle:hover {
-    color: #d4d4d4;
-  }
-  
-  .tree-toggle.collapsed::before {
-    content: '▶';
-  }
-  
-  .tree-toggle.expanded::before {
-    content: '▼';
-  }
-  
-  .tree-key {
-    color: #9cdcfe;
-    font-weight: normal;
-    margin-left: 4px;
-  }
-  
-  .tree-value {
-    color: #ce9178;
-    margin-left: 4px;
-  }
-  
-  .tree-type {
-    color: #6a9955;
-    margin-left: 4px;
-  }
-  
-  .tree-number {
-    color: #b5cea8;
-  }
-  
-  .tree-boolean {
-    color: #569cd6;
-  }
-  
-  .tree-null {
-    color: #569cd6;
-  }
-  
-  .tree-link {
-    color: #569cd6;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-  
-  .tree-link:hover {
-    text-decoration: none;
-  }
-  
-  .tree-children {
-    margin-left: 2rem;
-    display: none;
-  }
-  
-  .tree-children.visible {
-    display: block;
-  }
-  
-  .tree-bracket {
-    color: #d4d4d4;
-  }
-`;
 function isUrl(value) {
-  return typeof value === "string" && value.startsWith(HTTP_PREFIX);
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function getTypeLabel(value) {
@@ -109,7 +18,7 @@ function getTypeLabel(value) {
   if (value === null) {
     return "null";
   }
-  return `Object`;
+  return "Object";
 }
 
 function renderPrimitive(value) {
@@ -143,7 +52,15 @@ function renderPrimitive(value) {
   return span;
 }
 
-function createTreeItem(key, value, depth = 0, visited = new WeakSet()) {
+function createKeySpan(key, depth) {
+  const keySpan = document.createElement("span");
+  keySpan.className = "tree-key";
+  keySpan.style.fontSize = `${Math.max(12, 16 - depth * 0.5)}px`;
+  keySpan.textContent = key;
+  return keySpan;
+}
+
+function createTreeItem(key, value, depth, ancestors) {
   const item = document.createElement("div");
   item.className = "tree-item";
 
@@ -152,33 +69,26 @@ function createTreeItem(key, value, depth = 0, visited = new WeakSet()) {
 
   const isCollapsible = typeof value === "object" && value !== null;
 
-  // Handle circular references or maximum depth safety limits
-  if (isCollapsible && visited.has(value)) {
-    const keySpan = document.createElement("span");
-    keySpan.className = "tree-key";
-    keySpan.textContent = key;
+  if (isCollapsible && ancestors.has(value)) {
+    content.appendChild(createKeySpan(key, depth));
+    content.insertAdjacentText("beforeend", ": ");
 
-    const colonSpan = document.createElement("span");
-    colonSpan.textContent = ": ";
-
-    const circularSpan = document.createElement("span");
-    circularSpan.className = "tree-value text-warning";
-    circularSpan.textContent = "[Circular]";
-
-    content.appendChild(keySpan);
-    content.appendChild(colonSpan);
-    content.appendChild(circularSpan);
+    const circularValue = document.createElement("span");
+    circularValue.className = "tree-value";
+    circularValue.textContent = "[Circular]";
+    content.appendChild(circularValue);
     item.appendChild(content);
     return item;
   }
 
   if (isCollapsible) {
-    visited.add(value); // Mark object as visited
+    ancestors.add(value);
 
-    const toggle = document.createElement("div");
+    const toggle = document.createElement("button");
     toggle.className = "tree-toggle collapsed";
-    toggle.setAttribute("role", "button");
-    toggle.setAttribute("tabindex", "0");
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", `Expand ${key}`);
 
     const childrenContainer = document.createElement("div");
     childrenContainer.className = "tree-children";
@@ -186,53 +96,43 @@ function createTreeItem(key, value, depth = 0, visited = new WeakSet()) {
     if (Array.isArray(value)) {
       value.forEach((element, index) => {
         childrenContainer.appendChild(
-          createTreeItem(`${index}`, element, depth + 1, visited),
+          createTreeItem(`${index}`, element, depth + 1, ancestors),
         );
       });
     } else {
       Object.entries(value).forEach(([k, v]) => {
-        childrenContainer.appendChild(createTreeItem(k, v, depth + 1, visited));
+        childrenContainer.appendChild(
+          createTreeItem(k, v, depth + 1, ancestors),
+        );
       });
     }
+    ancestors.delete(value);
 
     toggle.addEventListener("click", () => {
-      toggle.classList.toggle("collapsed");
-      toggle.classList.toggle("expanded");
-      childrenContainer.classList.toggle("visible");
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      toggle.setAttribute(
+        "aria-label",
+        `${expanded ? "Expand" : "Collapse"} ${key}`,
+      );
+      toggle.classList.toggle("collapsed", expanded);
+      toggle.classList.toggle("expanded", !expanded);
+      childrenContainer.classList.toggle("visible", !expanded);
     });
-
-    const keySpan = document.createElement("span");
-    keySpan.className = "tree-key";
-    const baseFontSize = 16;
-    const fontSizeDecrement = 0.5;
-    const fontSize = Math.max(12, baseFontSize - depth * fontSizeDecrement);
-    keySpan.style.fontSize = `${fontSize}px`;
-    keySpan.textContent = key;
 
     const typeSpan = document.createElement("span");
     typeSpan.className = "tree-type";
-    typeSpan.textContent = ": " + getTypeLabel(value);
+    typeSpan.textContent = `: ${getTypeLabel(value)}`;
 
     content.appendChild(toggle);
-    content.appendChild(keySpan);
+    content.appendChild(createKeySpan(key, depth));
     content.appendChild(typeSpan);
 
     item.appendChild(content);
     item.appendChild(childrenContainer);
   } else {
-    const keySpan = document.createElement("span");
-    keySpan.className = "tree-key";
-    const baseFontSize = 16;
-    const fontSizeDecrement = 0.5;
-    const fontSize = Math.max(12, baseFontSize - depth * fontSizeDecrement);
-    keySpan.style.fontSize = `${fontSize}px`;
-    keySpan.textContent = key;
-
-    const colonSpan = document.createElement("span");
-    colonSpan.textContent = ": ";
-
-    content.appendChild(keySpan);
-    content.appendChild(colonSpan);
+    content.appendChild(createKeySpan(key, depth));
+    content.insertAdjacentText("beforeend", ": ");
     content.appendChild(renderPrimitive(value));
 
     item.appendChild(content);
@@ -245,17 +145,24 @@ export function createTreeViewer(obj) {
   const container = document.createElement("div");
   container.className = "console-tree";
 
-  const visited = new WeakSet();
+  const ancestors = new WeakSet();
 
   Object.entries(obj).forEach(([key, value]) => {
-    container.appendChild(createTreeItem(key, value, 0, visited));
+    container.appendChild(createTreeItem(key, value, 0, ancestors));
   });
 
   return container;
 }
 
 export function createCustomCss() {
+  const existingStyle = document.querySelector("style[data-console-tree]");
+  if (existingStyle) {
+    return existingStyle;
+  }
+
   const styleSheet = document.createElement("style");
+  styleSheet.dataset.consoleTree = "true";
   styleSheet.textContent = styles;
   document.head.appendChild(styleSheet);
+  return styleSheet;
 }

@@ -1,5 +1,5 @@
 import {
-  createSetThemeEl,
+  initBasicThings,
   deleteUserAndDoc,
   changeUserPassword,
   updateNavbar,
@@ -139,7 +139,7 @@ function initializeActions(user) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  createSetThemeEl();
+  initBasicThings();
   generateSkeletonInfoCard();
   const user = await getCurrentUser();
   if (!user) window.location.href = "../index.html";

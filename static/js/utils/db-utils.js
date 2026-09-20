@@ -16,6 +16,7 @@ import {
   showModal,
   showToast,
   viewRawJson,
+  setFieldFeedback,
 } from "./ui-utils.js";
 
 export async function renderQueryResult(
@@ -38,8 +39,7 @@ export async function renderQueryResult(
   console.log(sortedDocs);
   container.innerHTML = "";
   for (const docSnap of sortedDocs) {
-    if (originalArgs) args = [docSnap, ...originalArgs];
-    else args = [docSnap];
+    args = [docSnap, ...originalArgs];
     const cardEl = renderFunction(...args);
     container.appendChild(cardEl);
   }
@@ -49,30 +49,29 @@ export async function renderQueryResult(
 /**
  * @param {string} delOrCancel
  */
-export function deleteDocEveLis(delOrCancel = "delete") {
+export function deleteDocEveLis(deleteContent = "delete") {
   document.body.addEventListener("click", (e) => {
     const deleteBtn = e.target.closest('[data-tool="delete"]');
     if (!deleteBtn) return;
-    console.log(deleteBtn);
+    console.log(deleteBtn, e);
     const { ModalEl, modal } = showModal(
       `
           <div>
             <h6>This action can not be undone!</h6>
-            <a class="btn btn-danger confirm-delete-btn" data-bs-dismiss="modal">${delOrCancel[0].toUpperCase() + delOrCancel.slice(1)} this?</a>
+            <a class="btn btn-danger confirm-delete-btn text-capitalize" data-bs-dismiss="modal">${deleteContent[0]} this?</a>
           </div>
           `,
-      `<div class="fs-5">Confirm ${delOrCancel}?</div>`,
-      false,
-      "modal-dialog-centered",
+      `<div class="fs-5">Confirm ${deleteContent}?</div>`,
     );
     ModalEl.querySelector(".confirm-delete-btn").addEventListener(
       "click",
       async () => {
         try {
           await deleteDoc(
-            doc(db, e.target.dataset.collection, e.target.dataset.uid),
+            doc(db, deleteBtn.dataset.collection, deleteBtn.dataset.uid),
           );
           showToast("Successfully deleted document!", "success");
+          modal.hide();
           document
             .querySelector(`[data-parent-id="${deleteBtn.dataset.uid}"]`)
             .remove();
@@ -80,6 +79,7 @@ export function deleteDocEveLis(delOrCancel = "delete") {
           showToast("Error deleting document: ", "danger", e);
         }
       },
+      { once: true },
     );
   });
 }
@@ -104,9 +104,7 @@ export function editJson(docSnap, renderFunc, args = [docSnap]) {
           spellcheck="false"
           style="font-size: 0.875rem; resize: vertical;"
         >${jsonString}</textarea>
-        <div id="json-error-msg" class="invalid-feedback d-none mt-2">
-          Invalid JSON format. Please check syntax before saving.
-        </div>
+        <div data-target="#json-editor-textarea"></div>
       </div>
       <div class="d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -118,17 +116,17 @@ export function editJson(docSnap, renderFunc, args = [docSnap]) {
 
   const textarea = editorContainer.querySelector("#json-editor-textarea");
   const saveBtn = editorContainer.querySelector("#save-json-btn");
-  const errorMsg = editorContainer.querySelector("#json-error-msg");
-
   textarea.addEventListener("input", () => {
     try {
       JSON.parse(textarea.value);
-      textarea.classList.remove("is-invalid");
-      errorMsg.classList.add("d-none");
+      setFieldFeedback(textarea, true, "JSON format is valid.");
       saveBtn.disabled = false;
     } catch (err) {
-      textarea.classList.add("is-invalid");
-      errorMsg.classList.remove("d-none");
+      setFieldFeedback(
+        textarea,
+        false,
+        "Invalid JSON format. Please check syntax before saving.",
+      );
       saveBtn.disabled = true;
     }
   });
@@ -172,10 +170,6 @@ export async function getUserRole(user) {
   return null;
 }
 
-/**
- * @param {boolean} getUser
- * @returns
- */
 export async function isAdmin(user = null) {
   console.log("isAdmin called");
   if (!user) user = await getCurrentUser();
@@ -202,8 +196,8 @@ export async function createOrder(product, user, quantity = 1) {
       rawImageLink = product.coverUrl || "",
       shippingFee = 3.0;
     const coverUrl = rawImageLink
-      ? `${rawImageLink}&fife=w800-h1000`
-      : `https://books.google.com/books/publisher/content/images/frontcover/${product.id}?fife=w800-h1000&source=gbs_api`;
+      ? rawImageLink
+      : `https://books.google.com/books/publisher/content/images/frontcover/${product.id}`;
 
     const order = {
       customer: {
@@ -233,7 +227,24 @@ export async function createOrder(product, user, quantity = 1) {
   } catch (e) {
     showToast("Error creating order", "danger", e);
   }
-  return newOrderRef.id;
+}
+
+export function detectPayloadType(rawData) {
+  if (!rawData || typeof rawData !== "object") return "unknown";
+
+  if (rawData.volumeInfo && typeof rawData.volumeInfo === "object") {
+    return "freeapi";
+  }
+
+  if (
+    rawData.title &&
+    (rawData.author || rawData.authors) &&
+    (rawData.computedPrice || rawData.coverUrl)
+  ) {
+    return "normalized";
+  }
+
+  return "unknown";
 }
 
 /**
@@ -255,11 +266,26 @@ export function addToCart(bookData, cardQtyBadge = null) {
   }
 }
 
-export function removeFromCart(data) {
-  var cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
-  cartArr.filter((e) => e === data);
-  sessionStorage.setItem("CART_KEY", JSON.stringify(cartArr));
+export function removeFromCart(id, cardEl) {
+  const cartArr = JSON.parse(sessionStorage.getItem("CART_KEY") ?? "[]");
+  const nextCart = cartArr.filter((item) => item.id !== id);
+
+  if (nextCart.length === cartArr.length) {
+    showToast("Cant found book index in cart", "warning");
+    return;
+  }
+
+  sessionStorage.setItem("CART_KEY", JSON.stringify(nextCart));
   showToast("Successfully remove product from cart", "success");
+
+  if (cardEl instanceof HTMLElement) {
+    cardEl.remove();
+  }
+
+  const cartBadge = document.getElementById("cart-badge");
+  if (cartBadge) {
+    cartBadge.textContent = String(nextCart.length);
+  }
 }
 
 /**
@@ -316,62 +342,344 @@ export async function updateOrderStatus(orderId, newStatus) {
 }
 
 export function processProductPayload(rawBook) {
-  const volume = rawBook.volumeInfo || {};
-  const imageLinks = volume.imageLinks || {};
-  const access = rawBook.accessInfo || {};
-  const search = rawBook.searchInfo || {};
+  const payloadType = detectPayloadType(rawBook);
+  if (payloadType === "unknown") {
+    showToast("Invalid payload type", "danger");
+    return;
+  }
 
-  const id = String(rawBook.id || rawBook.numericId || serverTimestamp());
+  switch (payloadType) {
+    case "normalized": {
+      if (!(rawBook.computedPrice && rawBook.computedPrice instanceof Object)) {
+        const computedAmount =
+          rawBook.pageCount > 0
+            ? parseFloat((5 + rawBook.pageCount * 0.05).toFixed(2))
+            : parseFloat((10 + (parseInt(id, 10) % 30 || 5) + 0.99).toFixed(2));
+        rawBook.computedPrice = { amount: computedAmount, currency: "USD" };
+      }
+      if (!rawBook.language) rawBook.language = "en";
+      return rawBook;
+    }
 
-  const authorsArray =
-    volume.authors || (rawBook.author ? [rawBook.author] : []);
-  const authorString =
-    authorsArray.length > 0 ? authorsArray.join(", ") : "Unknown Author";
+    case "freeapi": {
+      const volume = rawBook.volumeInfo || {};
+      const imageLinks = volume.imageLinks || {};
+      const access = rawBook.accessInfo || {};
+      const search = rawBook.searchInfo || {};
 
-  const pageCount = Number(volume.pageCount || rawBook.pageCount || 0);
-  const computedAmount = rawBook.computedPrice?.amount
-    ? Number(rawBook.computedPrice.amount)
-    : pageCount > 0
-      ? parseFloat((5 + pageCount * 0.05).toFixed(2))
-      : parseFloat((10 + (parseInt(id, 10) % 30 || 5) + 0.99).toFixed(2));
+      const id = String(rawBook.id || rawBook.numericId || serverTimestamp());
 
-  return {
-    id,
-    etag: rawBook.etag || null,
-    title: volume.title || rawBook.title || "Untitled Product",
-    subtitle: volume.subtitle || rawBook.subtitle || "",
-    author: authorString,
-    authors: authorsArray,
-    publisher: volume.publisher || "Independent",
-    publishedDate: volume.publishedDate || null,
-    description:
-      volume.description || rawBook.description || search.textSnippet || "",
-    pageCount,
-    language: volume.language || "en",
-    categories: volume.categories || ["General"],
-    isbn: volume.industryIdentifiers || [],
-    rating: {
-      average: Number(volume.averageRating || 0),
-      count: Number(volume.ratingsCount || 0),
-    },
-    coverUrl: (
-      imageLinks.thumbnail ||
-      imageLinks.smallThumbnail ||
-      rawBook.coverUrl ||
-      ""
-    ).replace(/^http:/, "https:"),
-    computedPrice: {
-      amount: computedAmount,
-      currency: rawBook.computedPrice?.currency || "USD",
-    },
-    links: {
-      preview: volume.previewLink || null,
-      info: volume.infoLink || null,
-      webReader: access.webReaderLink || null,
-      buy: rawBook.saleInfo?.buyLink || null,
-    },
-    updatedAt: serverTimestamp(),
-  };
+      const authorsArray =
+        volume.authors || (rawBook.author ? [rawBook.author] : []);
+      const authorString =
+        authorsArray.length > 0 ? authorsArray.join(", ") : "Unknown Author";
+
+      const pageCount = Number(volume.pageCount || rawBook.pageCount || 0);
+      const computedAmount = rawBook.computedPrice?.amount
+        ? Number(rawBook.computedPrice.amount)
+        : pageCount > 0
+          ? parseFloat((5 + pageCount * 0.05).toFixed(2))
+          : parseFloat(
+              (10 + (Math.floor(Math.random() * (5 - 37 + 1)) + 5)).toFixed(2),
+            );
+
+      return {
+        id,
+        etag: rawBook.etag || null,
+        title: volume.title || rawBook.title || "Untitled Product",
+        subtitle: volume.subtitle || rawBook.subtitle || "",
+        author: authorString,
+        authors: authorsArray,
+        publisher: volume.publisher || "Independent",
+        publishedDate: volume.publishedDate || null,
+        description:
+          volume.description || rawBook.description || search.textSnippet || "",
+        pageCount,
+        language: volume.language || "en",
+        categories: volume.categories || ["General"],
+        isbn: volume.industryIdentifiers || [],
+        rating: {
+          average: Number(volume.averageRating || 0),
+          count: Number(volume.ratingsCount || 0),
+        },
+        coverUrl:
+          (
+            imageLinks.thumbnail ||
+            imageLinks.smallThumbnail ||
+            rawBook.coverUrl
+          ).replace(/^http:/, "https:") + "&fife=w800-h1000",
+        computedPrice: {
+          amount: Math.abs(computedAmount),
+          currency: rawBook.computedPrice?.currency || "USD",
+        },
+        links: {
+          preview: volume.previewLink || null,
+          info: volume.infoLink || null,
+          webReader: access.webReaderLink || null,
+          buy: rawBook.saleInfo?.buyLink || null,
+        },
+        updatedAt: serverTimestamp(),
+      };
+    }
+  }
+}
+
+function getIsbnType(cleanIsbn) {
+  if (isValidIsbn10(cleanIsbn)) return "ISBN-10";
+  if (isValidIsbn13(cleanIsbn)) return "ISBN-13";
+  return "INVALID";
+}
+
+function isValidIsbn10(isbn) {
+  if (!/^\d{9}[\dX]$/.test(isbn)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(isbn[i], 10) * (10 - i);
+  }
+  const lastChar = isbn[9];
+  sum += lastChar === "X" ? 10 : parseInt(lastChar, 10);
+  return sum % 11 === 0;
+}
+
+function isValidIsbn13(isbn) {
+  if (!/^\d{13}$/.test(isbn)) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const digit = parseInt(isbn[i], 10);
+    sum += i % 2 === 0 ? digit : digit * 3;
+  }
+  const checkDigit = (10 - (sum % 10)) % 10;
+  return checkDigit === parseInt(isbn[12], 10);
+}
+
+function convertIsbn10To13(cleanIsbn) {
+  if (!/^\d{9}[\dX]$/.test(cleanIsbn)) return null;
+
+  let sum10 = 0;
+  for (let i = 0; i < 9; i++) {
+    sum10 += parseInt(cleanIsbn[i], 10) * (10 - i);
+  }
+  const lastChar = cleanIsbn[9];
+  sum10 += lastChar === "X" ? 10 : parseInt(lastChar, 10);
+  if (sum10 % 11 !== 0) return null;
+
+  const base13 = "978" + cleanIsbn.substring(0, 9);
+  let sum13 = 0;
+  for (let i = 0; i < 12; i++) {
+    const digit = parseInt(base13[i], 10);
+    sum13 += i % 2 === 0 ? digit : digit * 3;
+  }
+  const checkDigit = (10 - (sum13 % 10)) % 10;
+  return base13 + checkDigit;
+}
+
+function convertIsbn13To10(cleanIsbn) {
+  if (!/^\d{13}$/.test(cleanIsbn)) return null;
+
+  let sum13 = 0;
+  for (let i = 0; i < 12; i++) {
+    const digit = parseInt(cleanIsbn[i], 10);
+    sum13 += i % 2 === 0 ? digit : digit * 3;
+  }
+  const checkDigit13 = (10 - (sum13 % 10)) % 10;
+  if (checkDigit13 !== parseInt(cleanIsbn[12], 10)) return null;
+  if (!cleanIsbn.startsWith("978")) return null;
+
+  const base9 = cleanIsbn.substring(3, 12);
+  let sum10 = 0;
+  for (let i = 0; i < 9; i++) {
+    sum10 += parseInt(base9[i], 10) * (10 - i);
+  }
+
+  const remainder = sum10 % 11;
+  const checkDigit10Value = (11 - remainder) % 11;
+  const checkDigit10 =
+    checkDigit10Value === 10 ? "X" : String(checkDigit10Value);
+  return base9 + checkDigit10;
+}
+
+export function processBulkPayload(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+
+  if (typeof payload.authors === "string") {
+    payload.authors = payload.authors
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+
+  if (Array.isArray(payload.authors) && payload.authors.length > 0) {
+    payload.author = payload.authors.join(",");
+  } else if (typeof payload.author === "string" && !payload.authors) {
+    payload.authors = payload.author
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+
+  if (payload.isbn) {
+    if (typeof payload.isbn === "string") {
+      const cleanIsbn = payload.isbn.replace(/[- ]/g, "").toUpperCase();
+      const isbnType = getIsbnType(cleanIsbn);
+
+      if (isbnType === "ISBN-10") {
+        payload.isbn = [
+          { type: "ISBN_13", identifier: convertIsbn10To13(cleanIsbn) },
+          { type: "ISBN_10", identifier: cleanIsbn },
+        ];
+      } else if (isbnType === "ISBN-13") {
+        payload.isbn = [
+          { type: "ISBN_13", identifier: cleanIsbn },
+          { type: "ISBN_10", identifier: convertIsbn13To10(cleanIsbn) },
+        ];
+      }
+    } else if (Array.isArray(payload.isbn)) {
+      let isbn10_Obj = payload.isbn.find((e) => e.type === "ISBN_10");
+      let isbn13_Obj = payload.isbn.find((e) => e.type === "ISBN_13");
+
+      if (!isbn10_Obj) {
+        isbn10_Obj = { type: "ISBN_10", identifier: null };
+        payload.isbn.push(isbn10_Obj);
+      }
+      if (!isbn13_Obj) {
+        isbn13_Obj = { type: "ISBN_13", identifier: null };
+        payload.isbn.push(isbn13_Obj);
+      }
+
+      if (isbn10_Obj.identifier && !isbn13_Obj.identifier) {
+        const clean10 = String(isbn10_Obj.identifier)
+          .replace(/[- ]/g, "")
+          .toUpperCase();
+        isbn13_Obj.identifier = convertIsbn10To13(clean10);
+      } else if (!isbn10_Obj.identifier && isbn13_Obj.identifier) {
+        const clean13 = String(isbn13_Obj.identifier)
+          .replace(/[- ]/g, "")
+          .toUpperCase();
+        isbn10_Obj.identifier = convertIsbn13To10(clean13);
+      }
+    }
+  }
+
+  if (!payload.computedPrice) {
+    const rawPrice = payload.price ?? payload.unitPrice;
+    const price = Number(rawPrice ?? 0);
+    const currency = payload.currency ?? "USD";
+
+    delete payload.price;
+    delete payload.unitPrice;
+    delete payload.currency;
+
+    if (rawPrice !== undefined && Number.isFinite(price) && price >= 0) {
+      payload.computedPrice = { amount: price, currency };
+    }
+  }
+
+  if (!payload.links) {
+    const linkMap = {
+      buy: "buy",
+      buylink: "buy",
+      info: "info",
+      infolink: "info",
+      preview: "preview",
+      previewlink: "preview",
+      webreader: "webReader",
+      webreaderlink: "webReader",
+    };
+
+    const links = { buy: null, info: null, preview: null, webReader: null };
+    for (const [key, value] of Object.entries(payload)) {
+      const canonical = linkMap[key.toLowerCase()];
+      if (canonical) {
+        if (links[canonical] === null && value != null) {
+          links[canonical] = value;
+        }
+        delete payload[key];
+      }
+    }
+    payload.links = links;
+  }
+
+  if (typeof payload.categories === "string") {
+    payload.categories = payload.categories
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+
+  return payload;
+}
+
+export function processMainBulkPayload(payloads) {
+  if (Array.isArray(payloads)) {
+    return payloads.map((e) => processBulkPayload(e));
+  }
+  if (payloads instanceof Object) {
+    return processBulkPayload(payloads);
+  }
+}
+
+/**
+ * @param {HTMLFormElement} FormEl
+ */
+export async function processPayloadManualForm(FormEl) {
+  const formData = new FormData(FormEl);
+  const coverFile = ModalEl.querySelector("#manualCoverFile").files[0];
+  const coverUrl = formData.get("coverUrl").trim();
+  try {
+    let storedCoverUrl = coverUrl;
+    if (coverFile) {
+      storedCoverUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => resolve(reader.result));
+        reader.addEventListener("error", () => reject(reader.error));
+        reader.readAsDataURL(coverFile);
+      });
+    }
+
+    const pageCount = Number(formData.get("pageCount")) || 0;
+    const authorsArr = formData
+      .get("authors")
+      .split(",")
+      .map((author) => author.trim())
+      .filter(Boolean);
+    const product = {
+      title: formData.get("title").trim(),
+      author: authorsArr.join(", "),
+      authors: authorsArr,
+      publisher: formData.get("publisher").trim(),
+      publishedDate: formData.get("publishedDate"),
+      description: formData.get("description").trim(),
+      pageCount,
+      categories: formData
+        .get("categories")
+        .split(",")
+        .map((category) => category.trim())
+        .filter(Boolean),
+      isbn: [
+        { identifier: formData.get("isbn13").trim() || null, type: "ISBN_13" },
+        { identifier: formData.get("isbn10").trim() || null, type: "ISBN_10" },
+      ],
+      coverUrl: storedCoverUrl,
+      computedPrice: {
+        amount: Number(formData.get("price")),
+        currency: "USD",
+      },
+      links: {
+        preview: formData.get("previewLink"),
+        info: formData.get("infoLink").trim() || null,
+        webReader: formData.get("webReaderLink").trim() || null,
+        buy: formData.get("buyLink").trim() || null,
+      },
+      subtitle: formData.get("subtitle").trim() || null,
+      rating: { average: 0, count: 0 },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    return product;
+  } catch (error) {
+    showToast("Error processing manual form: ", "danger", error);
+  }
 }
 
 export function renderUniversalProductCard(docRef, mode = "guest") {
@@ -380,6 +688,7 @@ export function renderUniversalProductCard(docRef, mode = "guest") {
 
   const cardEl = document.createElement("div");
   cardEl.className = "col";
+  cardEl.dataset.parentId = id;
   cardEl.innerHTML = `
       <div class="card h-100 shadow-sm border-0 rounded-3 overflow-hidden">
         
@@ -425,9 +734,9 @@ export function renderUniversalProductCard(docRef, mode = "guest") {
         <div class="card-body p-3">
           <div class="row g-3 align-items-center">
             <div class="col-4 bg-body-tertiary d-flex align-items-center justify-content-center p-2 rounded">
-              <img 
-                src="${data.coverUrl}&fife=w800-h1000" 
-                class="img-fluid rounded object-fit-contain shadow-sm mh-100" 
+              <img
+                src="${data.coverUrl}"
+                class="img-fluid rounded object-fit-contain shadow-sm mh-100"
                 style="max-height: 140px;"
                 alt="${data.title || "Book Cover"}"
                 loading="lazy"
@@ -439,7 +748,7 @@ export function renderUniversalProductCard(docRef, mode = "guest") {
 
               <div class="small text-muted">
                 <div class="text-truncate mb-1">
-                  <i class="bi bi-person me-1 text-primary"></i>${data.authors?.join(", ") || "N/A"}
+                  <i class="bi bi-person me-1 text-primary"></i>${data.author || data.authors?.join(", ") || "N/A"}
                 </div>
                 <div class="text-truncate">
                   <i class="bi bi-building me-1 text-primary"></i>${data.publisher || "N/A"}
@@ -511,7 +820,7 @@ export function viewMetadata(docRef) {
       <div class="col-md-4 text-center">
         <img 
           class="img-fluid rounded-3 shadow-sm object-fit-contain"
-          src="${data.coverUrl ? `${data.coverUrl}&fife=w800-h1000` : ""}"
+          src="${data.coverUrl ? data.coverUrl : ""}"
           style="max-height: 280px;" 
           alt="${data.title || "Book Cover"}"
         >

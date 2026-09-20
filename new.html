@@ -1,0 +1,256 @@
+<form id="manualBookForm" class="needs-validation" novalidate>
+  <div class="accordion" id="newAccordion">
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button
+          class="accordion-button"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#collapseOne"
+          aria-expanded="true"
+          aria-controls="collapseOne"
+        >
+          Basics fields
+        </button>
+      </h2>
+      <div
+        id="collapseOne"
+        class="accordion-collapse collapse show"
+        data-bs-parent="#newAccordion"
+      >
+        <div class="accordion-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-12">
+              <label for="manualTitle" class="form-label fw-semibold"
+                >Book Title <span class="text-danger">*</span></label
+              ><input
+                type="text"
+                class="form-control"
+                id="manualTitle"
+                name="title"
+                placeholder="e.g., Clean Code"
+                required
+              />
+              <div class="invalid-feedback">Title is required.</div>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-7">
+              <label for="manualAuthors" class="form-label fw-semibold"
+                >Author(s) <span class="text-danger">*</span></label
+              ><input
+                type="text"
+                class="form-control"
+                id="manualAuthors"
+                name="authors"
+                placeholder="Comma-separated (e.g., Robert C. Martin)"
+                required
+              />
+              <div class="invalid-feedback">
+                At least one author is required.
+              </div>
+            </div>
+            <div class="col-md-5">
+              <label for="manualPublisher" class="form-label fw-semibold"
+                >Publisher</label
+              ><input
+                type="text"
+                class="form-control"
+                id="manualPublisher"
+                name="publisher"
+                placeholder="Prentice Hall"
+              />
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-5">
+              <label for="manualCategories" class="form-label fw-semibold"
+                >Categories / Genres <span class="text-danger">*</span></label
+              ><input
+                type="text"
+                class="form-control"
+                id="manualCategories"
+                name="categories"
+                placeholder="Software Engineering, Programming"
+                required
+              />
+            </div>
+            <div class="col-md-4">
+              <label for="manualPublishedDate" class="form-label fw-semibold"
+                >Release Date <span class="text-danger">*</span></label
+              ><input
+                type="date"
+                class="form-control"
+                id="manualPublishedDate"
+                name="publishedDate"
+                required
+              />
+            </div>
+            <div class="col-md-3">
+              <label for="manualPageCount" class="form-label fw-semibold"
+                >Page Count</label
+              ><input
+                type="number"
+                class="form-control"
+                id="manualPageCount"
+                name="pageCount"
+                min="1"
+                placeholder="464"
+              />
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-12">
+              <label for="manualPrice" class="form-label fw-semibold"
+                >Base Price ($) <span class="text-danger">*</span></label
+              ><input
+                type="number"
+                class="form-control"
+                id="manualPrice"
+                name="price"
+                step="0.01"
+                min="0"
+                placeholder="39.99"
+                required
+              />
+              <div class="invalid-feedback">Provide a valid price.</div>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-7">
+              <label for="manualCoverUrl" class="form-label fw-semibold"
+                >Cover Image URL</label
+              ><input
+                type="url"
+                class="form-control"
+                id="manualCoverUrl"
+                name="coverUrl"
+                placeholder="https://images.example.com/cover.jpg"
+              />
+            </div>
+            <div class="col-md-5">
+              <label for="manualCoverFile" class="form-label fw-semibold"
+                >Or Local Cover (Base64 Canvas)</label
+              ><input
+                type="file"
+                class="form-control"
+                id="manualCoverFile"
+                accept="image/*"
+              />
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="manualPreviewLink" class="form-label fw-semibold"
+                >Preview / Sample Link <span class="text-danger">*</span></label
+              ><input
+                type="url"
+                class="form-control"
+                id="manualPreviewLink"
+                name="previewLink"
+                placeholder="https://books.google.com/preview..."
+                required
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="manualInfoLink" class="form-label fw-semibold"
+                >More Info / Store Link</label
+              ><input
+                type="url"
+                class="form-control"
+                id="manualInfoLink"
+                name="infoLink"
+                placeholder="https://books.google.com/info..."
+              />
+            </div>
+          </div>
+          <div class="mb-4">
+            <label for="manualDescription" class="form-label fw-semibold"
+              >Full Description <span class="text-danger">*</span></label
+            ><textarea
+              class="form-control"
+              id="manualDescription"
+              name="description"
+              rows="3"
+              placeholder="Provide a detailed book synopsis..."
+              required
+            ></textarea>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button
+          class="accordion-button collapsed"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#collapseTwo"
+          aria-expanded="false"
+          aria-controls="collapseTwo"
+        >
+          Advanced fields
+        </button>
+      </h2>
+      <div
+        id="collapseTwo"
+        class="accordion-collapse collapse"
+        data-bs-parent="#newAccordion"
+      >
+        <div class="accordion-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-7">
+              <label for="manualEtag" class="form-label fw-semibold"
+                >Etag</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="manualEtag"
+                name="etag"
+                placeholder="b7yZqHfYIlM"
+              />
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="manualIsbn13" class="form-label fw-semibold"
+                >ISBN-13</label
+              ><input
+                type="text"
+                class="form-control"
+                id="manualIsbn13"
+                name="isbn13"
+                placeholder="9781119508199"
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="manualIsbn10" class="form-label fw-semibold"
+                >ISBN-10</label
+              ><input
+                type="text"
+                class="form-control"
+                id="manualIsbn10"
+                name="isbn10"
+                placeholder="1119508193"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2">
+    <button
+      type="button"
+      class="btn btn-outline-secondary"
+      data-bs-dismiss="modal"
+    >
+      Cancel
+    </button>
+    <button type="submit" class="btn btn-primary px-4">
+      <i class="bi bi-plus-circle me-1"></i> Save Full Record
+    </button>
+  </div>
+</form>

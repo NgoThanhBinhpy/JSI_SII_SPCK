@@ -1,0 +1,28 @@
+{
+  "id": "string",
+  "title": "string",
+  "author":"string",
+  "authors": ["string"],
+  "publisher": "string",
+  "publishedDate": "string",
+  "description": "string",
+  "pageCount": "number",
+  "categories": ["string"],
+  "isbn": ["Object"],
+  "ratings": {
+    "average": "number",
+    "count": "number"
+  },
+  "coverUrl": "string",
+  "computedPrice": {
+    "amount": "number",
+    "currency": "string"
+  },
+  "links": {
+    "preview": "string",
+    "info": "string",
+    "reader": "string",
+    "buy": "string"
+  },
+  "subtitle":"string"
+}

@@ -1,16 +1,14 @@
 import { collection, where, query, db } from "./firebase-config.js";
 import {
+  initBasicThings,
   showToast,
   isAdmin,
   deleteDocEveLis,
   viewRawJsonEveLis,
   renderQueryResult,
-  createSetThemeEl,
   updateNavbar,
   getCurrentUser,
 } from "./utils.js";
-import { createCustomCss } from "../../new.js";
-createSetThemeEl();
 async function renderAllOrders(user) {
   const uid = user.uid;
   const container = document.getElementById("orders-container");
@@ -158,8 +156,7 @@ function renderOrderCard(orderDoc) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  createCustomCss();
-  deleteDocEveLis("cancel");
+  initBasicThings();
   const user = await getCurrentUser();
   renderAllOrders(user);
   const isAdmin_ = await isAdmin(user);

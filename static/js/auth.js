@@ -4,15 +4,13 @@ import {
   GithubAuthProvider,
 } from "./firebase-config.js";
 import {
+  initBasicThings,
   showToast,
-  createSetThemeEl,
   login,
   register,
   signInWithProvider,
   setFieldFeedback,
 } from "./utils.js";
-
-createSetThemeEl();
 const EmailInput = document.getElementById("email-input");
 const PasswordInput = document.getElementById("password-input");
 const logInBtn = document.getElementById("log-in-btn");
@@ -41,6 +39,7 @@ function validateCredentials() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initBasicThings();
   logInBtn.addEventListener("click", async (e) => {
     e.preventDefault();
     if (!validateCredentials()) {

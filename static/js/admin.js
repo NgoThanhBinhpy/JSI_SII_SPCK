@@ -1,11 +1,11 @@
 import {
+  initBasicThings,
   showToast,
   isAdmin,
   viewRawJson,
   deleteDocEveLis,
   editJson,
   renderQueryResult,
-  createSetThemeEl,
   updateNavbar,
   getCurrentUser,
   addItems,
@@ -14,11 +14,17 @@ import {
   renderUniversalProductCard,
   viewMetadata,
   setFieldFeedback,
+  processPayloadManualForm,
+  processMainBulkPayload,
 } from "./utils.js";
-import { db, collection, setDoc } from "./firebase-config.js";
-import { createCustomCss } from "../../new.js";
-
-createSetThemeEl();
+import {
+  db,
+  collection,
+  doc,
+  setDoc,
+  serverTimestamp,
+  writeBatch,
+} from "./firebase-config.js";
 
 async function renderItems(currUser) {
   try {
@@ -53,6 +59,7 @@ async function renderItems(currUser) {
               bookDoc,
               currUser ? "user" : "guest",
             ]);
+            break;
           }
 
           case "view-raw-json": {
@@ -242,11 +249,10 @@ async function renderOrders(currUser) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  createCustomCss();
-  deleteDocEveLis();
+async function initAddBookBtns() {
   const quantityInput = document.getElementById("add-books-quantity");
   const addBooksButton = document.getElementById("add-books-btn");
+  const manualAddBookBtn = document.getElementById("manual-add-book-btn");
   quantityInput.addEventListener("input", () => {
     const valid =
       Number.isInteger(quantityInput.valueAsNumber) &&
@@ -271,7 +277,184 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     await addItems(qty);
   });
+  manualAddBookBtn.addEventListener("click", () => {
+    const { ModalEl, modal } = showModal(
+      `<ul class="nav nav-tabs nav-fill mb-4" id="ingestionTabs" role="tablist">
+          <li class="nav-item" role="presentation"><button class="nav-link active fw-semibold" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-pane" type="button" role="tab" aria-controls="manual-pane" aria-selected="true"><i class="bi bi-pencil-square me-1"></i> Manual Entry</button></li>
+          <li class="nav-item" role="presentation"><button class="nav-link fw-semibold" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk-pane" type="button" role="tab" aria-controls="bulk-pane" aria-selected="false"><i class="bi bi-file-earmark-arrow-up me-1"></i> Bulk Upload (.json / .txt)</button></li>
+        </ul>
+        <div class="tab-content" id="ingestionTabsContent">
+          <div class="tab-pane fade show active" id="manual-pane" role="tabpanel" aria-labelledby="manual-tab" tabindex="0">
+            <form id="manualBookForm" class="needs-validation" novalidate>
+              <div class="accordion" id="newAccordion">
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">Basic Fields</button></h2>
+                  <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#newAccordion">
+                    <div class="accordion-body">
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-12"><label for="manualTitle" class="form-label fw-semibold">Book Title <span class="text-danger">*</span></label><input type="text" class="form-control" id="manualTitle" name="title" placeholder="e.g., Clean Code" required /><div class="invalid-feedback">Title is required.</div></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-7"><label for="manualAuthors" class="form-label fw-semibold">Author(s) <span class="text-danger">*</span></label><input type="text" class="form-control" id="manualAuthors" name="authors" placeholder="Comma-separated (e.g., Robert C. Martin)" required /><div class="invalid-feedback">At least one author is required.</div></div>
+                        <div class="col-md-5"><label for="manualPublisher" class="form-label fw-semibold">Publisher</label><input type="text" class="form-control" id="manualPublisher" name="publisher" placeholder="Prentice Hall" /></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-5"><label for="manualCategories" class="form-label fw-semibold">Categories / Genres <span class="text-danger">*</span></label><input type="text" class="form-control" id="manualCategories" name="categories" placeholder="Software Engineering, Programming" required /></div>
+                        <div class="col-md-4"><label for="manualPublishedDate" class="form-label fw-semibold">Release Date <span class="text-danger">*</span></label><input type="date" class="form-control" id="manualPublishedDate" name="publishedDate" required /></div>
+                        <div class="col-md-3"><label for="manualPageCount" class="form-label fw-semibold">Page Count</label><input type="number" class="form-control" id="manualPageCount" name="pageCount" min="1" placeholder="464" /></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-12"><label for="manualPrice" class="form-label fw-semibold">Base Price ($) <span class="text-danger">*</span></label><input type="number" class="form-control" id="manualPrice" name="price" step="0.01" min="0" placeholder="39.99" required /><div class="invalid-feedback">Provide a valid price.</div></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-7"><label for="manualCoverUrl" class="form-label fw-semibold">Cover Image URL</label><input type="url" class="form-control" id="manualCoverUrl" name="coverUrl" placeholder="https://images.example.com/cover.jpg" /></div>
+                        <div class="col-md-5"><label for="manualCoverFile" class="form-label fw-semibold">Or Local Cover (Base64 Canvas)</label><input type="file" name="coverFile" class="form-control" id="manualCoverFile" accept="image/*" /></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-6"><label for="manualPreviewLink" class="form-label fw-semibold">Preview / Sample Link <span class="text-danger">*</span></label><input type="url" class="form-control" id="manualPreviewLink" name="previewLink" placeholder="https://books.google.com/preview..." required /></div>
+                        <div class="col-md-6"><label for="manualInfoLink" class="form-label fw-semibold">More Info / Store Link</label><input type="url" class="form-control" id="manualInfoLink" name="infoLink" placeholder="https://books.google.com/info..." /></div>
+                      </div>
+                      <div class="mb-4"><label for="manualDescription" class="form-label fw-semibold">Full Description <span class="text-danger">*</span></label><textarea class="form-control" id="manualDescription" name="description" rows="3" placeholder="Provide a detailed book synopsis..." required></textarea></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">Advanced Fields</button></h2>
+                  <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#newAccordion">
+                    <div class="accordion-body">
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-12"><label for="manualSubtitle" class="form-label fw-semibold">Subtitle</label><input type="text" class="form-control" id="manualSubtitle" name="subtitle" placeholder="A Handbook of Agile Software Craftsmanship" /></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-6"><label for="manualBuyLink" class="form-label fw-semibold">Buy Link</label><input type="url" class="form-control" id="manualBuyLink" name="buyLink" placeholder="https://play.google.com/store/books/details..." /></div>
+                        <div class="col-md-6"><label for="manualWebReaderLink" class="form-label fw-semibold">Web Reader Link</label><input type="url" class="form-control" id="manualWebReaderLink" name="webReaderLink" placeholder="https://play.google.com/books/reader..." /></div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-4"><label for="manualEtag" class="form-label fw-semibold">Etag</label><input type="text" class="form-control" id="manualEtag" name="etag" placeholder="b7yZqHfYIlM" /></div>
+                        <div class="col-md-4"><label for="manualIsbn13" class="form-label fw-semibold">ISBN-13</label><input type="text" class="form-control" id="manualIsbn13" name="isbn13" placeholder="9781119508199" /></div>
+                        <div class="col-md-4"><label for="manualIsbn10" class="form-label fw-semibold">ISBN-10</label><input type="text" class="form-control" id="manualIsbn10" name="isbn10" placeholder="1119508193" /></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex justify-content-end gap-2 mt-4">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary px-4"><i class="bi bi-plus-circle me-1"></i> Save Full Record</button>
+              </div>
+            </form>
+          </div>
+          <div class="tab-pane fade" id="bulk-pane" role="tabpanel" aria-labelledby="bulk-tab" tabindex="0">
+            <div class="p-3 bg-body-tertiary rounded border mb-3">
+              <p class="small text-muted mb-1"><strong>Accepted File Types:</strong></p>
+              <ul class="small text-muted ps-3 mb-0">
+                <li><code>.json</code>: Array of product objects. Image sources must be direct HTTP links.</li>
+                <li><code>.txt</code>: Pipe-delimited plain text formatted as <code>Title | Authors | PageCount | CoverUrl | Price</code>.</li>
+              </ul>
+            </div>
+            <form id="bulkUploadForm">
+              <div class="mb-3"><label for="bulkFileInput" class="form-label fw-semibold">Select Ingestion File <span class="text-danger">*</span></label><input type="file" class="form-control" id="bulkFileInput" accept=".json,.txt" required /></div>
+              <div id="bulkPreviewContainer" class="d-none mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1"><span class="fw-semibold small text-muted">Parsed Records Preview:</span><span id="bulkRecordCount" class="badge bg-primary rounded-pill">0 Records</span></div>
+                <pre id="bulkPreviewContent" class="bg-dark text-light p-3 rounded border" style="max-height: 220px; overflow-y: auto; font-size: 0.825rem;"></pre>
+              </div>
+              <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" id="btnCommitBulk" class="btn btn-success px-4"><i class="bi bi-cloud-upload me-1"></i> Upload All Items</button>
+              </div>
+            </form>
+          </div>
+        </div>`,
+      `<i class="bi bi-journal-plus me-2 text-primary"></i>Ingest Products`,
+    );
+    const manualBookForm = ModalEl.querySelector("#manualBookForm");
+    manualBookForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!manualBookForm.checkValidity()) {
+        manualBookForm.classList.add("was-validated");
+        return;
+      }
+
+      try {
+        const processedBook = await processPayloadManualForm(manualBookForm);
+        const bookRef = doc(collection(db, "products"));
+        setDoc(bookRef, { ...processedBook, id: bookRef.id });
+        showToast("Successfully add book!", "success");
+      } catch (e) {
+        showToast("Error adding book");
+      }
+    });
+
+    const bulkFileInput = ModalEl.querySelector("#bulkFileInput");
+    bulkFileInput.addEventListener("change", async (e) => {
+      const rawText = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => resolve(reader.result));
+        reader.addEventListener("error", () => reject(reader.error));
+        reader.readAsText(bulkFileInput.files[0]);
+      });
+      try {
+        if (rawText) {
+          const jsonContent = JSON.parse(rawText);
+          console.log(jsonContent);
+          console.log(processMainBulkPayload(jsonContent));
+        }
+      } catch (e) {
+        showToast("Error parsing the json: ", "danger", e);
+      }
+    });
+    const bulkUploadForm = ModalEl.querySelector("#bulkUploadForm");
+    bulkUploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const rawText = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => resolve(reader.result));
+        reader.addEventListener("error", () => reject(reader.error));
+        reader.readAsText(bulkFileInput.files[0]);
+      });
+
+      try {
+        const processedJsonContent = processMainBulkPayload(
+          JSON.parse(rawText),
+        );
+        if (Array.isArray(processedJsonContent)) {
+          const batch = writeBatch(db);
+          for (const book of processedJsonContent) {
+            const bookRef = doc(collection(db, "products"));
+            batch.set(bookRef, {
+              id: bookRef.id,
+              ...book,
+              createAt: serverTimestamp(),
+            });
+          }
+          await batch.commit();
+        } else if (processedJsonContent instanceof Object) {
+          const bookRef = doc(collection(db, "products"));
+          await setDoc(bookRef, {
+            id: bookRef.id,
+            ...book,
+            createAt: serverTimestamp(),
+          });
+        }
+        showToast("Successfully added the uploaded books", "success");
+      } catch (e) {
+        showToast("Error adding uploaded books: ", "danger", e);
+      }
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  initBasicThings();
+  initAddBookBtns();
+
   const user = await getCurrentUser();
+  if (!user) {
+    window.location.href = "../index.html";
+    return;
+  }
   const isAdmin_ = await isAdmin(user);
   if (!isAdmin_) {
     window.location.href = "../index.html";

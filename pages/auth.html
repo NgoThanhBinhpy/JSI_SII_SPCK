@@ -26,6 +26,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
     />
+    <link rel="stylesheet" href="../static/css/index.css" />
   </head>
   <body class="bg-body">
     <div
@@ -46,8 +47,7 @@
           />
           <label for="email-input">Email</label>
         </div>
-        <div class="invalid-feedback">Enter a valid email address.</div>
-        <div class="valid-feedback">Email format looks good.</div>
+        <div data-target="#email-input"></div>
       </div>
 
       <div class="input-group mb-3">
@@ -64,10 +64,7 @@
           />
           <label for="password-input">Password</label>
         </div>
-        <div class="invalid-feedback">
-          Password must be at least 6 characters.
-        </div>
-        <div class="valid-feedback">Password is long enough.</div>
+        <div data-target="#password-input"></div>
       </div>
 
       <div class="d-flex gap-2 mx-auto justify-content-center col-md-6">

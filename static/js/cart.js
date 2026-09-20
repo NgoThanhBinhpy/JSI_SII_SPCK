@@ -1,6 +1,6 @@
 import {
+  initBasicThings,
   showToast,
-  createSetThemeEl,
   removeFromCart,
   createOrder,
   updateNavbar,
@@ -9,8 +9,6 @@ import {
   getCurrentUser,
   setFieldFeedback,
 } from "./utils.js";
-import { createCustomCss } from "../../new.js";
-createSetThemeEl();
 
 function renderCart(user) {
   const cartBody = document.getElementById("cart-body");
@@ -40,7 +38,7 @@ function renderCart(user) {
             `.quantity-picker[data-id="${uid}"]`,
           );
           createOrder(
-            cartArr.find((c) => c.id === uid),
+            cartArr.find((c) => c.id == uid),
             user,
             Number(quantityPicker.value),
           );
@@ -57,7 +55,10 @@ function renderCart(user) {
       }
 
       case "delete": {
-        removeFromCart(cartDoc);
+        removeFromCart(
+          uid,
+          document.querySelector(`[data-parent-id="${uid}"]`),
+        );
       }
     }
   });
@@ -66,14 +67,15 @@ function renderCart(user) {
 function renderBookCard(item) {
   const cardEl = document.createElement("div");
   cardEl.className = "card border shadow-sm";
+  cardEl.dataset.parentId = item.id;
   cardEl.innerHTML = `
   <div class="card-body p-3">
     <div class="row g-3 align-items-center">
       <div class="col-3 col-sm-2 text-center">
-        <img 
-          src="${item?.coverUrl}&fife=w800-h1000" 
-          alt="${item?.title}" 
-          class="img-fluid rounded border" 
+        <img
+          src="${item?.coverUrl}"
+          alt="${item?.title}"
+          class="img-fluid rounded border"
           style="max-height: 90px; object-fit: contain;"
         >
       </div>
@@ -89,13 +91,13 @@ function renderBookCard(item) {
           <input 
             type="number" 
             class="form-control text-center fw-semibold px-1 quantity-picker" 
+            id="quantity-${item.id}"
             value="1" 
             min="1" 
             max="100" 
             data-id="${item.id}"
           >
-          <div class="invalid-feedback">Enter a whole number from 1 to 100.</div>
-          <div class="valid-feedback">Quantity is valid.</div>
+          <div data-target="#quantity-${item.id}"></div>
         </div>
       </div>
       <div class="col-5 col-sm-3 text-end d-flex flex-column align-items-end justify-content-between">
@@ -129,7 +131,7 @@ function renderBookCard(item) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  createCustomCss();
+  initBasicThings();
   const user = await getCurrentUser();
   renderCart(user);
   const isAdmin_ = await isAdmin(user);

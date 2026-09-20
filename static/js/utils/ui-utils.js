@@ -27,7 +27,8 @@ export function showToast(message, type = "danger", error, delay = 3000) {
   toastEl.innerHTML = `
     <div class="d-flex">
       <div class="toast-body">
-        ${type === "danger" && error ? message + error.message : message}
+        ${message}
+        <div class="error-message"></div>
       </div>
       <button
         type="button"
@@ -37,6 +38,8 @@ export function showToast(message, type = "danger", error, delay = 3000) {
       ></button>
     </div>
   `;
+  if (error)
+    toastEl.querySelector(".error-message").textContent = error.message;
   container.appendChild(toastEl);
   const toast = new bootstrap.Toast(toastEl, {
     delay,
@@ -61,6 +64,7 @@ export function showToast(message, type = "danger", error, delay = 3000) {
       console.warn(message);
       console.trace();
       console.groupEnd();
+      break;
     default:
       console.groupCollapsed(message);
       console.log(message);
@@ -77,20 +81,23 @@ export function showToast(message, type = "danger", error, delay = 3000) {
 export function setFieldFeedback(input, valid, message = "") {
   if (!input) return false;
 
-  const feedbackContainer =
-    input.closest(".input-group, .mb-3, form") || input.parentElement;
-  const invalidFeedback = feedbackContainer?.querySelector(".invalid-feedback");
-  const validFeedback = feedbackContainer?.querySelector(".valid-feedback");
+  const feedback = input.id
+    ? [...document.querySelectorAll("[data-target]")].find(
+        (element) => element.dataset.target === `#${input.id}`,
+      )
+    : null;
 
   input.classList.toggle("is-valid", valid);
   input.classList.toggle("is-invalid", !valid);
   input.setAttribute("aria-invalid", String(!valid));
 
-  if (invalidFeedback) {
-    invalidFeedback.textContent = message;
-    invalidFeedback.classList.toggle("d-none", valid);
+  if (feedback) {
+    feedback.textContent = message;
+    feedback.classList.toggle("valid-feedback", valid);
+    feedback.classList.toggle("invalid-feedback", !valid);
+    feedback.classList.toggle("d-block", Boolean(message));
+    feedback.classList.toggle("d-none", !message);
   }
-  if (validFeedback) validFeedback.classList.toggle("d-none", !valid);
 
   return valid;
 }
@@ -101,13 +108,13 @@ export function setFieldFeedback(input, valid, message = "") {
  * @param {boolean} htmlElement
  * @returns
  */
-export function showModal(modalBody, modalTitle, modalFooter = "") {
+export function showModal(modalBody = "", modalTitle = "", modalFooter = "") {
   const ModalEl = document.createElement("div");
   ModalEl.className = "modal fade";
   ModalEl.tabIndex = "-1";
 
   ModalEl.innerHTML = `
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h1 class="modal-title fs-5">${modalTitle}</h1>
@@ -259,17 +266,19 @@ export function calculateBookPrice(book) {
 }
 
 export function setBootstrapTheme(theme) {
-  if (theme === "auto") {
+  const selectedTheme = theme === "auto" ? "auto" : theme;
+
+  if (selectedTheme === "auto") {
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
       .matches
       ? "dark"
       : "light";
     document.documentElement.setAttribute("data-bs-theme", systemTheme);
-    localStorage.setItem("color-scheme-preference", systemTheme);
   } else {
-    document.documentElement.setAttribute("data-bs-theme", theme);
-    localStorage.setItem("color-scheme-preference", theme);
+    document.documentElement.setAttribute("data-bs-theme", selectedTheme);
   }
+
+  localStorage.setItem("color-scheme-preference", selectedTheme);
 }
 
 export function createSetThemeEl() {
@@ -283,7 +292,7 @@ export function createSetThemeEl() {
     data-bs-toggle="dropdown" 
     aria-expanded="false" 
     aria-label="Toggle theme">
-    <i class="bi bi-circle-half id="theme-icon-active"></i>
+    <i class="bi bi-circle-half" id="theme-icon-active"></i>
   </button>
 
   <ul class="dropdown-menu shadow" aria-labelledby="bd-theme">
@@ -314,13 +323,15 @@ export function createSetThemeEl() {
         break;
       case "auto":
         icon = `<i class="bi bi-circle-half me-2"></i>`;
+        break;
+      default:
+        icon = `<i class="bi bi-circle-half me-2"></i>`;
     }
     themeDropDown.querySelector("#bd-theme").innerHTML = icon;
   };
-  const localStorage_theme_perferance =
-    localStorage.getItem("color-scheme-perferance") ?? "auto";
-  setBootstrapTheme(localStorage_theme_perferance);
-  setThemeIcon(localStorage_theme_perferance);
+  const savedTheme = localStorage.getItem("color-scheme-preference") ?? "auto";
+  setBootstrapTheme(savedTheme);
+  setThemeIcon(savedTheme);
   themeDropDown.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-theme]");
     if (!btn) return;
@@ -329,4 +340,20 @@ export function createSetThemeEl() {
     setBootstrapTheme(theme);
   });
   document.body.appendChild(themeDropDown);
+}
+
+export function createFooter() {
+  const footer = document.createElement("footer");
+
+  footer.className = "border-top mt-5 py-4 position-absolute top-100 w-100";
+  footer.innerHTML = `
+    <div class="container text-center">
+      <h6 class="mb-1">Book Collection</h6>
+      <small class="text-body-secondary">
+        © 2026 Book Collection. All rights reserved.
+      </small>
+    </div>
+  `;
+
+  document.body.appendChild(footer);
 }

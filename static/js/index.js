@@ -1,21 +1,16 @@
 import { db, collection } from "./firebase-config.js";
 import {
-  showToast,
+  initBasicThings,
   updateNavbar,
-  showModal,
   addToCart,
   createOrder,
   renderQueryResult,
-  createSetThemeEl,
   getCurrentUser,
   isAdmin,
   renderUniversalProductCard,
   viewMetadata,
-  editJson,
   viewRawJson,
 } from "./utils.js";
-import { createCustomCss } from "../../new.js";
-createSetThemeEl();
 
 async function renderAllBookCards(currUser) {
   const docRef = collection(db, "products");
@@ -70,7 +65,7 @@ async function renderAllBookCards(currUser) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  createCustomCss();
+  initBasicThings();
   const user = await getCurrentUser();
   renderAllBookCards(user);
   const isAdmin_ = await isAdmin(user);

@@ -160,9 +160,6 @@ export async function signInWithProvider(providerClass) {
   }
 }
 
-/**
- * @returns {*}
- */
 export async function getCurrentUser() {
   console.log("currUser called");
   return new Promise((resolve, reject) => {
@@ -379,8 +376,7 @@ export async function changeUserPassword(user) {
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock"></i></span>
           <input type="password" class="form-control" id="new-password" placeholder="Enter new password" required />
-          <div class="invalid-feedback">Password must be at least 6 characters.</div>
-          <div class="valid-feedback">Password is valid.</div>
+          <div data-target="#new-password"></div>
         </div>
       </div>
       <div class="mb-3">
@@ -388,8 +384,7 @@ export async function changeUserPassword(user) {
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
           <input type="password" class="form-control" id="confirm-password" placeholder="Confirm new password" required />
-          <div class="invalid-feedback">Passwords must match.</div>
-          <div class="valid-feedback">Passwords match.</div>
+          <div data-target="#confirm-password"></div>
         </div>
       </div>
 

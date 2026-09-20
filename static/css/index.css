@@ -1,0 +1,162 @@
+:root {
+  --accent-orange: #f59e0b;
+  --accent-teal: #0d9488;
+  --accent-red: #fc4444;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-emerald: #10b981;
+  --accent-pink: #ec4899;
+  --accent-optional: var(--bs-border-color, #dee2e6);
+}
+
+:is(
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input:not([type])
+):required {
+  border-left: 4px solid var(--accent-orange) !important;
+}
+
+:is(textarea, select):required {
+  border-left: 4px solid var(--accent-teal) !important;
+}
+
+input[type="number"]:required {
+  border-left: 4px solid var(--accent-purple) !important;
+}
+
+input[type="url"]:required {
+  border-left: 4px solid var(--accent-blue) !important;
+}
+
+:is(input[type="date"], input[type="datetime-local"]):required {
+  border-left: 4px solid var(--accent-pink) !important;
+}
+
+input[type="file"]:required {
+  border-left: 4px solid var(--accent-emerald) !important;
+}
+
+:is(input[type="checkbox"], input[type="radio"]):required {
+  border-left: 3px solid var(--accent-red) !important;
+  outline: 1px solid var(--accent-red);
+}
+
+:is(input, textarea, select):not(:required) {
+  border-left: 4px solid var(--accent-optional) !important;
+}
+
+:is(input[type="checkbox"], input[type="radio"]):not(:required) {
+  border-left: 3px solid var(--accent-optional) !important;
+}
+
+input[type="file"] {
+  padding-left: 0.5rem;
+}
+
+.console-tree {
+  font-family: "Courier New", monospace;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.tree-item {
+  margin-left: 0;
+}
+
+.tree-item-content {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  cursor: default;
+  user-select: none;
+}
+
+.tree-toggle {
+  appearance: none;
+  background: none;
+  border: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  text-align: center;
+  cursor: pointer;
+  color: #858585;
+  font-weight: bold;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tree-toggle:hover {
+  color: #d4d4d4;
+}
+
+.tree-toggle:focus-visible {
+  outline: 1px solid #d4d4d4;
+  outline-offset: 2px;
+}
+
+.tree-toggle.collapsed::before {
+  content: "▶";
+}
+
+.tree-toggle.expanded::before {
+  content: "▼";
+}
+
+.tree-key {
+  color: #9cdcfe;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.tree-value {
+  color: #ce9178;
+  margin-left: 4px;
+}
+
+.tree-type {
+  color: #6a9955;
+  margin-left: 4px;
+}
+
+.tree-number {
+  color: #b5cea8;
+}
+
+.tree-boolean {
+  color: #569cd6;
+}
+
+.tree-null {
+  color: #569cd6;
+}
+
+.tree-link {
+  color: #569cd6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tree-link:hover {
+  text-decoration: none;
+}
+
+.tree-children {
+  margin-left: 2rem;
+  display: none;
+}
+
+.tree-children.visible {
+  display: block;
+}
+
+body {
+  min-height: 100vh;
+}

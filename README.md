@@ -26,7 +26,7 @@ All pages use Bootstrap for layout, components, modals, dropdowns, alerts, and t
 1. A page imports `firebase-config.js`, which imports the project settings from `config.js`, initializes Firebase, and exports the Authentication, Firestore, Storage, and Analytics clients plus Firebase helper functions.
 2. Page scripts call `createSetThemeEl()` to add the fixed theme selector and apply the saved theme.
 3. Pages that need login state call `getCurrentUser()` or `isAdmin()`.
-4. The home page calls `renderQueryResult()` for the `products` collection and uses `renderBookCard()` to create each card.
+4. The home page calls `renderQueryResult()` for the `products` collection and uses `renderUniversalProductCard()` in either `guest` or `user` mode to create each card.
 5. A signed-in user can save a complete product object to the browser's `sessionStorage` under `CART_KEY`.
 6. Ordering creates a new document in the Firestore `orders` collection. The order stores customer information, item information, quantity, pricing, status, and timestamps.
 7. The orders page queries only orders whose nested `customer.uid` matches the signed-in user.
@@ -65,7 +65,7 @@ Imports the Firebase configuration from `config.js`, initializes the Firebase ap
 
 ### `static/js/index.js`
 
-Adds the theme selector, checks whether the visitor is an administrator, updates the shared navigation bar, loads the `products` collection, and renders product cards. Product cards support metadata previews, raw JSON inspection, adding to the cart, and immediate ordering.
+Adds the theme selector, reads the current user, checks administrator status, updates the shared navigation bar, loads the `products` collection, and renders universal product cards. Cards use `guest` mode for signed-out visitors and `user` mode for signed-in visitors. A delegated click handler reads each control's `data-tool` and `data-uid` attributes to add products to the cart, create orders with the selected quantity, show metadata, or show raw JSON.
 
 ### `static/js/auth.js`
 
@@ -185,11 +185,11 @@ Returns a USD price object. Books with a positive page count use `5 + pageCount 
 
 ### `setBootstrapTheme(theme)`
 
-Applies a Bootstrap `data-bs-theme` value to the document root and stores the choice in local storage. For `auto`, it checks `prefers-color-scheme` and applies either `dark` or `light`. For other values it applies the supplied theme directly.
+Applies a Bootstrap `data-bs-theme` value to the document root while keeping the user's chosen theme in `localStorage`. The `auto` option resolves the system preference at runtime but still stores the user choice as `auto`, so the selection remains consistent across reloads.
 
 ### `createSetThemeEl()`
 
-Creates a fixed bottom-left dropup containing Light, Dark, and Auto options. It applies the saved theme through `setBootstrapTheme()`, updates the button icon, and listens for future theme selections. The selector is appended to `document.body`. The current code reads `color-scheme-perferance` when loading but writes `color-scheme-preference` when saving, so the storage key is inconsistent.
+Creates a fixed bottom-left dropup containing Light, Dark, and Auto options. It reads the saved preference from `localStorage.color-scheme-preference`, applies it through `setBootstrapTheme()`, updates the icon to match the current choice, and listens for future theme selections. The selector is appended to `document.body`.
 
 ## Database Utility Functions
 
@@ -221,9 +221,9 @@ Creates a new document in `orders` from the normalized product shape. It derives
 
 Reads the session cart, prevents duplicate product IDs, appends the complete book object, and writes the result back to `sessionStorage.CART_KEY`. It displays feedback and optionally updates a supplied cart badge.
 
-### `removeFromCart(data)`
+### `removeFromCart(id, cardEl)`
 
-Receives cart data and persists the cart after the removal operation. The current implementation calls `filter()` without assigning its result, so it currently leaves the stored cart unchanged while still showing a success toast.
+Removes the matching product ID from the cart, writes the filtered array back to `sessionStorage.CART_KEY`, updates the cart badge, and removes the rendered card element if one is supplied. It guards against missing items and shows a warning toast instead of mutating the cart when the product is not present.
 
 ### `addItems(count = 10)`
 
@@ -239,7 +239,7 @@ Converts a raw API book into the normalized product shape used by the applicatio
 
 ### `renderUniversalProductCard(docRef, mode = "guest")`
 
-Renders a product document into a reusable Bootstrap card. Guest and user modes include quantity, cart, and Buy Now controls; admin mode includes product editing and deletion controls. The card also exposes raw JSON and metadata actions.
+Renders a product document into a reusable Bootstrap card. Guest and user modes include quantity, cart, and Buy Now controls; guest controls are disabled and include Bootstrap tooltips explaining that login is required. Admin mode includes product editing and deletion controls. The card exposes raw JSON and metadata actions through `data-action` elements.
 
 ### `viewMetadata(docRef)`
 
