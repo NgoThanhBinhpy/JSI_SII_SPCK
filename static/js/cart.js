@@ -7,7 +7,6 @@ import {
   isAdmin,
   viewRawJson,
   getCurrentUser,
-  setFieldFeedback,
 } from "./utils.js";
 
 function renderCart(user) {
@@ -37,10 +36,14 @@ function renderCart(user) {
           const quantityPicker = cartBody.querySelector(
             `.quantity-picker[data-id="${uid}"]`,
           );
+          const quantityForm = quantityPicker.closest("form");
+          quantityForm.classList.add("was-validated");
+          if (!quantityForm.checkValidity()) return;
+
           createOrder(
             cartArr.find((c) => c.id == uid),
             user,
-            Number(quantityPicker.value),
+            quantityPicker.valueAsNumber,
           );
           showToast("Successfully created an order", "success");
         } catch (e) {
@@ -87,6 +90,7 @@ function renderBookCard(item) {
         </div>
       </div>
       <div class="col-7 col-sm-3">
+        <form class="needs-validation" novalidate>
         <div class="input-group input-group-sm" style="max-width: 120px;">
           <input 
             type="number" 
@@ -95,10 +99,14 @@ function renderBookCard(item) {
             value="1" 
             min="1" 
             max="100" 
+            step="1"
+            required
             data-id="${item.id}"
           >
-          <div data-target="#quantity-${item.id}"></div>
         </div>
+        <div class="valid-feedback">Looks good.</div>
+        <div class="invalid-feedback">Enter a whole number from 1 to 100.</div>
+        </form>
       </div>
       <div class="col-5 col-sm-3 text-end d-flex flex-column align-items-end justify-content-between">
         <button class="btn btn-link text-decoration-none flex-fill text-nowrap d-inline-flex align-items-center justify-content-center py-2 px-1" data-tool="place-order" data-action type="button" data-uid="${item.id}">
@@ -115,18 +123,6 @@ function renderBookCard(item) {
 
     </div>
   </div>`;
-  const quantityPicker = cardEl.querySelector(".quantity-picker");
-  quantityPicker.addEventListener("input", () => {
-    const valid =
-      Number.isInteger(quantityPicker.valueAsNumber) &&
-      quantityPicker.valueAsNumber >= 1 &&
-      quantityPicker.valueAsNumber <= 100;
-    setFieldFeedback(
-      quantityPicker,
-      valid,
-      "Enter a whole number from 1 to 100.",
-    );
-  });
   return cardEl;
 }
 

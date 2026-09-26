@@ -48,7 +48,12 @@ async function renderAllBookCards(currUser) {
         const cardFooter =
           target.closest(".card-footer") || target.closest(".card-body");
         const qtyInput = cardFooter?.querySelector(".qty-selector");
-        const qty = Number(qtyInput?.value || 1);
+        const quantityForm = qtyInput?.closest("form");
+        if (quantityForm) {
+          quantityForm.classList.add("was-validated");
+          if (!quantityForm.checkValidity()) return;
+        }
+        const qty = qtyInput?.valueAsNumber || 1;
 
         await createOrder(productData, currUser, qty);
         break;

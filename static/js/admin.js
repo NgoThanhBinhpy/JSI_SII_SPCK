@@ -13,7 +13,6 @@ import {
   showModal,
   renderUniversalProductCard,
   viewMetadata,
-  setFieldFeedback,
   processPayloadManualForm,
   processMainBulkPayload,
 } from "./utils.js";
@@ -247,31 +246,14 @@ async function renderOrders() {
 
 async function initAddBookBtns() {
   const quantityInput = document.getElementById("add-books-quantity");
+  const quantityForm = document.getElementById("add-books-form");
   const addBooksButton = document.getElementById("add-books-btn");
   const manualAddBookBtn = document.getElementById("manual-add-book-btn");
-  quantityInput.addEventListener("input", () => {
-    const valid =
-      Number.isInteger(quantityInput.valueAsNumber) &&
-      quantityInput.valueAsNumber >= 1 &&
-      quantityInput.valueAsNumber <= 100;
-    setFieldFeedback(
-      quantityInput,
-      valid,
-      "Enter a whole number from 1 to 100.",
-    );
-    addBooksButton.disabled = !valid;
-  });
   addBooksButton.addEventListener("click", async () => {
-    const qty = quantityInput.valueAsNumber;
-    if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
-      setFieldFeedback(
-        quantityInput,
-        false,
-        "Enter a whole number from 1 to 100.",
-      );
-      return;
-    }
-    await addItems(qty);
+    quantityForm.classList.add("was-validated");
+    if (!quantityForm.checkValidity()) return;
+
+    await addItems(quantityInput.valueAsNumber);
   });
   manualAddBookBtn.addEventListener("click", () => {
     const { ModalEl, modal } = showModal(
@@ -348,8 +330,8 @@ async function initAddBookBtns() {
                 <li><code>.txt</code>: Pipe-delimited plain text formatted as <code>Title | Authors | PageCount | CoverUrl | Price</code>.</li>
               </ul>
             </div>
-            <form id="bulkUploadForm">
-              <div class="mb-3"><label for="bulkFileInput" class="form-label fw-semibold">Select Ingestion File <span class="text-danger">*</span></label><input type="file" class="form-control" id="bulkFileInput" accept=".json,.txt" required /></div>
+            <form id="bulkUploadForm" class="needs-validation" novalidate>
+              <div class="mb-3"><label for="bulkFileInput" class="form-label fw-semibold">Select Ingestion File <span class="text-danger">*</span></label><input type="file" class="form-control" id="bulkFileInput" accept=".json,.txt" required /><div class="invalid-feedback">Select a file to upload.</div></div>
               <div id="bulkPreviewContainer" class="d-none mb-3">
                 <div class="d-flex justify-content-between align-items-center mb-1"><span class="fw-semibold small text-muted">Parsed Records Preview:</span><span id="bulkRecordCount" class="badge bg-primary rounded-pill">0 Records</span></div>
                 <pre id="bulkPreviewContent" class="bg-dark text-light p-3 rounded border" style="max-height: 220px; overflow-y: auto; font-size: 0.825rem;"></pre>
@@ -367,8 +349,8 @@ async function initAddBookBtns() {
     manualBookForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      manualBookForm.classList.add("was-validated");
       if (!manualBookForm.checkValidity()) {
-        manualBookForm.classList.add("was-validated");
         return;
       }
 
@@ -403,6 +385,8 @@ async function initAddBookBtns() {
     const bulkUploadForm = ModalEl.querySelector("#bulkUploadForm");
     bulkUploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      bulkUploadForm.classList.add("was-validated");
+      if (!bulkUploadForm.checkValidity()) return;
 
       const rawText = await new Promise((resolve, reject) => {
         const reader = new FileReader();

@@ -39,6 +39,8 @@ import {
   deleteUser,
   updatePassword,
   updateEmail,
+  sendPasswordResetEmail,
+  updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -81,4 +83,6 @@ export {
   deleteUser,
   updateEmail,
   updatePassword,
+  sendPasswordResetEmail,
+  updateProfile,
 };

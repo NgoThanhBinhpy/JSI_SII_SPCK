@@ -16,7 +16,6 @@ import {
   showModal,
   showToast,
   viewRawJson,
-  setFieldFeedback,
 } from "./ui-utils.js";
 
 export async function renderQueryResult(
@@ -89,6 +88,7 @@ export function editJson(docSnap, renderFunc, collection, args = []) {
   const jsonString = JSON.stringify(data, null, 2);
 
   editorContainer.innerHTML = `
+    <form id="json-editor-form" class="needs-validation" novalidate>
       <div class="mb-3">
         <label class="form-label text-muted small fw-bold">Document Payload (JSON Format)</label>
         <textarea 
@@ -96,32 +96,32 @@ export function editJson(docSnap, renderFunc, collection, args = []) {
           id="json-editor-textarea" 
           rows="14" 
           spellcheck="false"
+          required
           style="font-size: 0.875rem; resize: vertical;"
         >${jsonString}</textarea>
-        <div data-target="#json-editor-textarea"></div>
+        <div class="valid-feedback">JSON format is valid.</div>
+        <div class="invalid-feedback">Invalid JSON format. Please check syntax before saving.</div>
       </div>
       <div class="d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-warning fw-semibold" data-uid="${docSnap.id}" data-collection="${collection}" id="save-json-btn">
+        <button type="submit" class="btn btn-warning fw-semibold" data-uid="${docSnap.id}" data-collection="${collection}" id="save-json-btn">
           <i class="bi bi-check-lg me-1"></i>Save Changes
         </button>
       </div>
+    </form>
     `;
 
+  const jsonEditorForm = editorContainer.querySelector("#json-editor-form");
   const textarea = editorContainer.querySelector("#json-editor-textarea");
   const saveBtn = editorContainer.querySelector("#save-json-btn");
   textarea.addEventListener("input", () => {
     try {
       JSON.parse(textarea.value);
-      setFieldFeedback(textarea, true, "JSON format is valid.");
-      saveBtn.disabled = false;
+      textarea.setCustomValidity("");
     } catch (err) {
-      setFieldFeedback(
-        textarea,
-        false,
+      textarea.setCustomValidity(
         "Invalid JSON format. Please check syntax before saving.",
       );
-      saveBtn.disabled = true;
     }
   });
 
@@ -130,7 +130,11 @@ export function editJson(docSnap, renderFunc, collection, args = []) {
     `Edit JSON: ${saveBtn.dataset.uid}`,
   );
 
-  saveBtn.addEventListener("click", async () => {
+  jsonEditorForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    jsonEditorForm.classList.add("was-validated");
+    if (!jsonEditorForm.checkValidity()) return;
+
     try {
       const updatedData = JSON.parse(textarea.value);
       await setDoc(
@@ -744,10 +748,22 @@ export function renderUniversalProductCard(docRef, mode = "guest") {
         </div>
 
         <div class="card-footer bg-transparent border-secondary-subtle p-3">
-          ${
-            mode === "guest" || mode === "user"
-              ? `<div class="row g-2 align-items-center">
+
+        </div>
+  `;
+  if (mode === "guest" || mode === "user") {
+    const buyingAttr =
+      mode === "guest"
+        ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disabled`
+        : "";
+    const ATCAttr =
+      mode === "guest"
+        ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to add products to cart" disabled`
+        : "";
+    cardEl.querySelector(".card-footer").innerHTML =
+      `<div class="row g-2 align-items-center">
             <div class="col-12 col-sm-5">
+              <form class="needs-validation" novalidate>
               <div class="input-group input-group-sm bg-body-tertiary p-1 rounded-3 border border-secondary-subtle align-items-center gap-2">
                 
                 <label class="ps-2 pe-1 fw-semibold text-body-secondary small mb-0 user-select-none">
@@ -760,39 +776,35 @@ export function renderUniversalProductCard(docRef, mode = "guest") {
                   value="1"
                   min="1" 
                   max="99"
-                  ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disabled` : ""}
+                    step="1"
+                    required
+                  ${buyingAttr}
                   >
 
               </div>
+                  <div class="invalid-feedback">Enter a whole number from 1 to 99.</div>
+                  </form>
             </div>
 
             <div class="col-6 col-sm-3">
-              <button class="btn btn-sm btn-outline-primary w-100 d-flex align-items-center justify-content-center" data-action data-tool="add-to-cart" title="Add to Cart" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to add products to cart" disabled` : ""}>
+              <button class="btn btn-sm btn-outline-primary w-100 d-flex align-items-center justify-content-center" data-action data-tool="add-to-cart" title="Add to Cart" data-uid="${id}" ${ATCAttr}>
                 <i class="bi bi-cart-plus fs-6"></i>
               </button>
             </div>
 
             <div class="col-6 col-sm-4">
-              <button class="btn btn-sm btn-primary w-100 fw-semibold" data-action data-tool="place-order" data-uid="${id}" ${mode === "guest" ? `data-bs-toggle="tooltip" data-bs-title="You have to login in order to buy products" disabled` : ""}>
+              <button class="btn btn-sm btn-primary w-100 fw-semibold" data-action data-tool="place-order" data-uid="${id}" ${buyingAttr}>
                 Buy Now
               </button>
             </div>
           </div>
-        </div>`
-              : ""
-          }
-
-      </div>
-  `;
-
+        </div>`;
+  }
   switch (mode) {
     case "guest":
-      const tooltipTriggerList = document.querySelectorAll(
-        '[data-bs-toggle="tooltip"]',
-      );
-      const tooltipList = [...tooltipTriggerList].map(
-        (tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl),
-      );
+      cardEl
+        .querySelectorAll('[data-bs-toggle="tooltip"]')
+        .forEach((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl));
   }
   return cardEl;
 }

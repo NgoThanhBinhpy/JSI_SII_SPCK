@@ -14,6 +14,7 @@ import {
   deleteUser,
   updatePassword,
   updateEmail,
+  updateProfile,
   serverTimestamp,
   doc,
   setDoc,
@@ -21,7 +22,7 @@ import {
   updateDoc,
   deleteDoc,
 } from "../firebase-config.js";
-import { showToast, showModal, setFieldFeedback } from "./ui-utils.js";
+import { showToast, showModal } from "./ui-utils.js";
 
 export async function deleteUserAndDoc(user) {
   try {
@@ -29,6 +30,7 @@ export async function deleteUserAndDoc(user) {
     if (!authenticated) return;
     await deleteDoc(doc(db, "users", user.uid));
     await deleteUser(user);
+
     redirectAfterDelay();
   } catch (e) {
     showToast("Error deleting user: ", "danger", e);
@@ -80,7 +82,7 @@ export async function login(email, password) {
   }
 }
 
-export async function register(email, password) {
+export async function register(email, password, displayName) {
   try {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
@@ -101,6 +103,13 @@ export async function register(email, password) {
       } catch (e) {
         showToast("Create profile failed: ", "danger", e);
         return;
+      }
+      try {
+        await updateProfile(user, {
+          displayName,
+        });
+      } catch (e) {
+        showToast("Error setting display name: ", "danger", e);
       }
     }
 
@@ -179,65 +188,7 @@ export async function openLinkAccountModal(email, pendingCred) {
   const modalContainer = document.createElement("div");
   const providerId = pendingCred.providerId;
 
-  modalContainer.innerHTML = `
-  <div class="text-center mb-4">
-    <div class="d-inline-flex align-items-center justify-content-center bg-warning-subtle text-warning-emphasis rounded-circle mb-3" style="width: 56px; height: 56px;">
-      <i class="bi bi-link-45deg fs-2"></i>
-    </div>
-    <h5 class="fw-bold mb-1">Account Already Exists</h5>
-    <p class="small text-body-secondary mb-0">
-      An account already exists under <strong class="text-body">${email}</strong>. Sign in using your existing method below to link this provider.
-    </p>
-  </div>
-
-  ${
-    providerId !== "password"
-      ? `<form onsubmit="return false;" data-provider="password" class="auth-option-block mb-3">
-          <label for="modalAuthPassword" class="form-label text-body-secondary small fw-semibold">Sign in with Password</label>
-          <div class="input-group mb-2">
-            <span class="input-group-text bg-body-tertiary text-body-secondary border-secondary-subtle">
-              <i class="bi bi-key-fill"></i>
-            </span>
-            <input type="password" id="modalAuthPassword" class="form-control bg-body text-body border-secondary-subtle" placeholder="Enter existing password" required autocomplete="current-password" />
-            <button class="btn btn-primary fw-semibold" type="button" id="submitPasswordBtn">
-              Sign In & Link
-            </button>
-          </div>
-        </form>`
-      : ""
-  }
-
-  ${
-    providerId !== "password"
-      ? `<div class="position-relative text-center my-4">
-          <hr class="border-secondary-subtle opacity-50 m-0" />
-          <span class="position-absolute top-50 start-50 translate-middle bg-body px-3 text-body-secondary small fw-medium">
-            OR LINK WITH PROVIDER
-          </span>
-        </div>`
-      : ""
-  }
-
-  <div class="d-grid gap-2">
-    ${
-      providerId !== "google.com"
-        ? `<button type="button" data-provider="google.com" class="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2 py-2 auth-provider-btn">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="Google" />
-            <span class="fw-medium">Sign in with Google to Link</span>
-          </button>`
-        : ""
-    }
-
-    ${
-      providerId !== "github.com"
-        ? `<button type="button" data-provider="github.com" class="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2 py-2 auth-provider-btn">
-            <i class="bi bi-github fs-5 text-body"></i>
-            <span class="fw-medium">Sign in with GitHub to Link</span>
-          </button>`
-        : ""
-    }
-  </div>
-`;
+  modalContainer.innerHTML = ` <div class="text-center mb-4"> <div class="d-inline-flex align-items-center justify-content-center bg-warning-subtle text-warning-emphasis rounded-circle mb-3" style="width: 56px; height: 56px;" > <i class="bi bi-link-45deg fs-2"></i> </div> <h5 class="fw-bold mb-2">Account Already Exists</h5> <p class="text-body-secondary small mb-0"> An account already exists for <strong class="text-body">${email}</strong>. Sign in with an existing method to link this provider. </p> </div> ${providerId !== "password" ? ` <div class="border rounded-3 p-3 mb-3 bg-body-tertiary"> <div class="d-flex align-items-center gap-2 mb-3"> <div class="d-flex align-items-center justify-content-center rounded-2 bg-body border" style="width: 36px; height: 36px;" > <i class="bi bi-key-fill text-body-secondary"></i> </div> <div> <div class="fw-semibold">Password</div> <div class="small text-body-secondary"> Use your existing account password </div> </div> </div> <form onsubmit="return false;" data-provider="password"> <div class="input-group"> <input type="password" id="modalAuthPassword" class="form-control bg-body text-body border-secondary-subtle" placeholder="Enter existing password" required autocomplete="current-password" /> <button class="btn btn-primary fw-semibold" type="button" id="submitPasswordBtn" > Sign in & link </button> </div> </form> </div> <div class="d-flex align-items-center gap-3 my-4"> <hr class="flex-grow-1 border-secondary-subtle opacity-50 m-0"> <span class="small text-body-secondary fw-medium"> OR </span> <hr class="flex-grow-1 border-secondary-subtle opacity-50 m-0"> </div> ` : ""} <div class="d-grid gap-2"> ${providerId !== "google.com" ? ` <button type="button" data-provider="google.com" class="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2 py-2 auth-provider-btn" > <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="Google" > <span class="fw-medium">Continue with Google</span> </button> ` : ""} ${providerId !== "github.com" ? ` <button type="button" data-provider="github.com" class="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2 py-2 auth-provider-btn" > <i class="bi bi-github fs-5 text-body"></i> <span class="fw-medium">Continue with GitHub</span> </button> ` : ""} </div> <div class="text-center mt-4"> <span class="small text-body-secondary"> Your accounts will remain connected after linking. </span> </div> `;
   const passwordBtn = modalContainer.querySelector("#submitPasswordBtn");
   if (passwordBtn) {
     passwordBtn.addEventListener("click", async () => {
@@ -253,6 +204,7 @@ export async function openLinkAccountModal(email, pendingCred) {
         );
         await linkWithCredential(userCred.user, pendingCred);
         showToast("Successfully linked account!", "success");
+        redirectAfterDelay();
         modal.hide();
       } catch (err) {
         showToast(`Authentication failed: ${err.message}`, "danger");
@@ -272,6 +224,7 @@ export async function openLinkAccountModal(email, pendingCred) {
           const result = await signInWithPopup(auth, oauthProvider);
           await linkWithCredential(result.user, pendingCred);
           showToast("Successfully linked accounts!", "success");
+          redirectAfterDelay();
           modal.hide();
         } catch (err) {
           showToast(`Linking failed: ${err.message}`, "danger");
@@ -279,12 +232,7 @@ export async function openLinkAccountModal(email, pendingCred) {
       }
     });
   });
-  const { modal } = showModal(
-    modalContainer,
-    "Verify Existing Account",
-    true,
-    "modal-dialog-centered",
-  );
+  const { modal } = showModal(modalContainer, "Verify Existing Account");
 }
 
 export function OpenReauthModal(user) {
@@ -320,7 +268,6 @@ export function OpenReauthModal(user) {
     const { ModalEl, modal } = showModal(
       modalBodyEl,
       "Authentication Required",
-      true,
     );
 
     let isAuthenticated = false;
@@ -369,21 +316,23 @@ export async function changeUserPassword(user) {
     const { ModalEl, modal } = showModal(`<div class="card shadow-sm mb-4">
   <div class="card-header bg-body-tertiary fw-bold">Change Password</div>
   <div class="card-body">
-    <form id="change-password-form">
+    <form id="change-password-form" class="needs-validation" novalidate>
       <div class="mb-3">
         <label for="new-password" class="form-label text-muted small fw-semibold">New Password</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock"></i></span>
-          <input type="password" class="form-control" id="new-password" placeholder="Enter new password" required />
-          <div data-target="#new-password"></div>
+          <input type="password" class="form-control" id="new-password" name="newPassword" placeholder="Enter new password" minlength="6" required />
+          <div class="valid-feedback">Looks good.</div>
+          <div class="invalid-feedback">Password must be at least 6 characters.</div>
         </div>
       </div>
       <div class="mb-3">
         <label for="confirm-password" class="form-label text-muted small fw-semibold">Confirm New Password</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-          <input type="password" class="form-control" id="confirm-password" placeholder="Confirm new password" required />
-          <div data-target="#confirm-password"></div>
+          <input type="password" class="form-control" id="confirm-password" name="confirmPassword" placeholder="Confirm new password" minlength="6" required />
+          <div class="valid-feedback">Passwords match.</div>
+          <div class="invalid-feedback">Passwords must match.</div>
         </div>
       </div>
 
@@ -393,31 +342,31 @@ export async function changeUserPassword(user) {
     </form>
   </div>
 </div>`);
-    ModalEl.addEventListener("submit", async (e) => {
+    const form = ModalEl.querySelector("#change-password-form");
+    const newPasswordInput = form.querySelector("#new-password");
+    const confirmPasswordInput = form.querySelector("#confirm-password");
+    const validatePasswordMatch = () => {
+      const passwordsDiffer =
+        confirmPasswordInput.value &&
+        confirmPasswordInput.value !== newPasswordInput.value;
+      confirmPasswordInput.setCustomValidity(
+        passwordsDiffer ? "Passwords must match." : "",
+      );
+    };
+
+    newPasswordInput.addEventListener("input", validatePasswordMatch);
+    confirmPasswordInput.addEventListener("input", validatePasswordMatch);
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const newPassword = document.getElementById("new-password").value.trim();
-      const confirmPassword = document
-        .getElementById("confirm-password")
-        .value.trim();
-      const newPasswordInput = document.getElementById("new-password");
-      const confirmPasswordInput = document.getElementById("confirm-password");
-      const newPasswordValid = newPassword.length >= 6;
-      const passwordsMatch =
-        confirmPassword.length >= 6 && confirmPassword === newPassword;
-      setFieldFeedback(
-        newPasswordInput,
-        newPasswordValid,
-        "Password must be at least 6 characters.",
-      );
-      setFieldFeedback(
-        confirmPasswordInput,
-        passwordsMatch,
-        "Passwords must match.",
-      );
-      if (!newPasswordValid || !passwordsMatch) {
+      validatePasswordMatch();
+      form.classList.add("was-validated");
+
+      if (!form.checkValidity()) {
         showToast("Please correct the highlighted fields.", "warning");
         return;
       }
+
+      const newPassword = newPasswordInput.value;
       try {
         await updatePassword(user, newPassword).then(() => {
           modal.hide();

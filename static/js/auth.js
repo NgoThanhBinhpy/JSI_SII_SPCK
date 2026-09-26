@@ -2,61 +2,55 @@ import {
   auth,
   GoogleAuthProvider,
   GithubAuthProvider,
+  sendPasswordResetEmail,
 } from "./firebase-config.js";
 import {
   initBasicThings,
   showToast,
+  showModal,
   login,
   register,
   signInWithProvider,
-  setFieldFeedback,
 } from "./utils.js";
-const EmailInput = document.getElementById("email-input");
-const PasswordInput = document.getElementById("password-input");
+const authForm = document.getElementById("auth-form");
 const logInBtn = document.getElementById("log-in-btn");
 const resBtn = document.getElementById("res-btn");
+const resetPasswordBtn = document.getElementById("reset-password");
 
-function validateCredentials() {
-  const email = EmailInput.value.trim();
-  const password = PasswordInput.value.trim();
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const passwordValid = password.length >= 6;
-
-  setFieldFeedback(
-    EmailInput,
-    emailValid,
-    email ? "Enter a valid email address." : "Email is required.",
-  );
-  setFieldFeedback(
-    PasswordInput,
-    passwordValid,
-    password
-      ? "Password must be at least 6 characters."
-      : "Password is required.",
-  );
-
-  return emailValid && passwordValid;
+function validateAuthForm() {
+  authForm.classList.add("was-validated");
+  return authForm.checkValidity();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
   initBasicThings();
   logInBtn.addEventListener("click", async (e) => {
     e.preventDefault();
-    if (!validateCredentials()) {
+    if (!validateAuthForm()) {
       showToast("Please correct the highlighted fields.", "warning");
       return;
     }
-    await login(EmailInput.value.trim(), PasswordInput.value.trim());
+    const formData = new FormData(authForm);
+    await login(
+      String(formData.get("email") ?? "").trim(),
+      String(formData.get("password") ?? "").trim(),
+    );
   });
 
   resBtn.addEventListener("click", async (e) => {
     e.preventDefault();
-    if (!validateCredentials()) {
+    if (!validateAuthForm()) {
       showToast("Please correct the highlighted fields.", "warning");
       return;
     }
-    await register(EmailInput.value.trim(), PasswordInput.value.trim());
+    const formData = new FormData(authForm);
+    await register(
+      String(formData.get("email") ?? "").trim(),
+      String(formData.get("password") ?? "").trim(),
+      String(formData.get("displayName") ?? "").trim(),
+    );
   });
+
   for (const curr of btnMap) {
     const btn = document.getElementById(curr.id);
     if (btn) {
@@ -67,8 +61,64 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  EmailInput.addEventListener("input", validateCredentials);
-  PasswordInput.addEventListener("input", validateCredentials);
+  resetPasswordBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    const { ModalEl, modal } = showModal(
+      `<form id="reset-password-form" class="needs-validation" novalidate>
+    <div class="input-group mb-3">
+      <span class="input-group-text"
+        ><i class="fa-solid fa-at text-secondary"></i
+      ></span>
+      <div class="form-floating">
+        <input
+          type="email"
+          class="form-control"
+          id="email-input"
+          name="email"
+          placeholder="Email"
+          autocomplete="email"
+          required
+        />
+        <label for="email-input">Email</label>
+        <div class="invalid-feedback">Please fill in your email in order to reset your password.</div>
+      </div>
+
+      <div data-target="#email-input"></div>
+    </div>
+    <div class="d-flex flex-column gap-2">
+      <button type="submit" class="btn btn-primary">
+        Send reset password email.
+      </button>
+    </div>
+  </form>
+`,
+      "Send reset password email.",
+    );
+
+    const resetPasswordForm = ModalEl.querySelector("#reset-password-form");
+
+    resetPasswordForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      resetPasswordForm.classList.add("was-validated");
+      if (!resetPasswordForm.checkValidity()) return;
+
+      const formData = new FormData(resetPasswordForm);
+      const trimedEmail = formData.get("email").trim();
+
+      try {
+        await sendPasswordResetEmail(auth, trimedEmail);
+        showToast(
+          "Successfully sent passwrod reset email, please check your email account.",
+          "success",
+        );
+        modal.hide();
+      } catch (e) {
+        showToast("Error sending password reset email: ", "danger", e);
+      }
+    });
+  });
 });
 
 const btnMap = [

@@ -30,10 +30,12 @@
   </head>
   <body class="bg-body d-flex flex-column min-vh-100">
     <main class="flex-grow-1">
-      <div
-        class="card col-5 mx-auto mt-4 p-2 border-0 d-flex flex-column gap-2 bg-transparent"
+      <form
+        id="auth-form"
+        class="card col-5 mx-auto mt-4 p-2 border-0 d-flex flex-column gap-2 bg-transparent needs-validation"
+        novalidate
       >
-        <h3 class="mx-auto">Sign in / Register</h3>
+        <h3 class="mx-auto">Sign in or Register</h3>
         <div class="input-group mb-3">
           <span class="input-group-text"
             ><i class="fa-solid fa-at text-secondary"></i
@@ -43,10 +45,13 @@
               type="email"
               class="form-control"
               id="email-input"
+              name="email"
               placeholder="Email"
               autocomplete="email"
+              required
             />
             <label for="email-input">Email</label>
+            <div class="invalid-feedback">Enter a valid email address.</div>
           </div>
           <div data-target="#email-input"></div>
         </div>
@@ -60,19 +65,53 @@
               type="password"
               class="form-control"
               id="password-input"
+              name="password"
               placeholder="Password"
               autocomplete="current-password"
+              minlength="8"
+              maxlength="128"
+              required
             />
             <label for="password-input">Password</label>
+            <div class="invalid-feedback">
+              Password must be at least 8 characters.
+            </div>
           </div>
           <div data-target="#password-input"></div>
         </div>
 
+        <div class="input-group mb-3">
+          <span class="input-group-text"
+            ><i class="fa-solid fa-user text-secondary"></i
+          ></span>
+          <div class="form-floating">
+            <input
+              type="text"
+              class="form-control"
+              id="display-name-input"
+              name="displayName"
+              placeholder="Display name"
+              maxlength="50"
+              minlength="2"
+            />
+            <label for="display-name-input">Display name</label>
+          </div>
+          <div data-target="#display-name-input"></div>
+        </div>
+
         <div class="d-flex gap-2 mx-auto justify-content-center col-md-6">
-          <button class="btn btn-outline-info col-8 mx-auto" id="log-in-btn">
+          <button
+            type="button"
+            class="btn btn-outline-info col-8 mx-auto"
+            id="log-in-btn"
+          >
             Sign in
           </button>
-          <button class="btn btn-outline-info col-8 mx-auto" id="res-btn">
+          <button
+            type="button"
+            class="btn btn-outline-info col-8 mx-auto"
+            id="res-btn"
+          >
             Register
           </button>
         </div>
@@ -80,14 +119,18 @@
         <hr />
         <h5 class="mx-auto">Sign in using other providers</h5>
         <div class="d-flex gap-2 justify-content-center">
-          <button class="btn border-0 m-0" id="google-btn">
+          <button class="btn border-0 m-0" id="google-btn" type="button">
             <i class="fa-brands fa-google"></i>
           </button>
-          <button class="btn border-0 m-0" id="github-btn">
+          <button class="btn border-0 m-0" id="github-btn" type="button">
             <i class="fa-brands fa-github"></i>
           </button>
         </div>
-      </div>
+        <p class="mx-auto">
+          Forgot your password? Reset your password
+          <a href="#" id="reset-password">here</a>
+        </p>
+      </form>
     </main>
 
     <script type="module" src="../static/js/auth.js"></script>

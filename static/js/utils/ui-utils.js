@@ -74,35 +74,6 @@ export function showToast(message, type = "danger", error, delay = 3000) {
 }
 
 /**
- * @param {HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement} input
- * @param {boolean} valid
- * @param {string} message
- */
-export function setFieldFeedback(input, valid, message = "") {
-  if (!input) return false;
-
-  const feedback = input.id
-    ? [...document.querySelectorAll("[data-target]")].find(
-        (element) => element.dataset.target === `#${input.id}`,
-      )
-    : null;
-
-  input.classList.toggle("is-valid", valid);
-  input.classList.toggle("is-invalid", !valid);
-  input.setAttribute("aria-invalid", String(!valid));
-
-  if (feedback) {
-    feedback.textContent = message;
-    feedback.classList.toggle("valid-feedback", valid);
-    feedback.classList.toggle("invalid-feedback", !valid);
-    feedback.classList.toggle("d-block", Boolean(message));
-    feedback.classList.toggle("d-none", !message);
-  }
-
-  return valid;
-}
-
-/**
  * @param {string | HTMLElement} modalBody
  * @param {string} modalTitle
  * @param {boolean} htmlElement
